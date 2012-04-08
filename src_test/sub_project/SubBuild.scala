@@ -1,5 +1,5 @@
 import build.Build
-class Build extends Build {
+class SubBuild extends Build {
 
   def projectName = "SubTestBuild"
 }

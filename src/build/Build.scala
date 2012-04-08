@@ -20,6 +20,9 @@ trait Build {
   def preCompile {}
 
   def compile {
+    println("******************************************************")
+    println("* Compiling "+projectName)
+    println("******************************************************")
     println("Compiling files in " + sourceFolders.mkString(","))
     try {
 
