@@ -1,0 +1,88 @@
+package build
+
+import scala.tools.ant.Scalac
+import scala.tools.nsc.Global
+import scala.tools.nsc.Settings
+import scala.tools.nsc.reporters.ConsoleReporter
+import java.io.File
+import util.FileListing
+import scala.tools.nsc.io.Jar
+import scala.tools.nsc.io.Directory
+/**
+ * @author soren
+ *
+ */
+trait Build {
+
+  def sourceFolders: List[String] = List("src")
+  def testFolders: List[String] = List("src_test")
+
+  def preCompile {}
+
+  def compile {
+    println("Compiling files in " + sourceFolders.mkString(","))
+    try {
+
+      val settings = new Settings
+      settings.deprecation.value = true // enable detailed deprecation warnings
+      settings.unchecked.value = true // enable detailed unchecked warnings
+      settings.outputDirs.setSingleOutput(classOutputDirectory)
+
+      val pathList = List("bin") ::: CompileHelper.compilerPath ::: CompileHelper.libPath
+      settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
+      settings.classpath.value = (pathList /*::: impliedClassPath*/ ).mkString(File.pathSeparator)
+
+      val reporter = new ConsoleReporter(settings)
+      val compiler = new Global(settings, reporter)
+      val filesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(folder), f => {
+        f.getAbsoluteFile().toString().endsWith(".scala")
+      }).map(f => f.getAbsolutePath()))
+
+      println("Trying to compile the following files: " + filesToCompile.mkString("\n"))
+      (new compiler.Run).compile(filesToCompile)
+      println("About to stop")
+      compiler.currentRun.cancel()
+      println("Stopped...")
+    } catch {
+      case e: Throwable => e.printStackTrace()
+    }
+  }
+
+  def postCompile {}
+
+  /**
+   * Creates a jar file from the target directory
+   *
+   * @return jarfile
+   */
+  def packageJar = {
+    println("Creating Jar '" + jarName + "' in directory " + jarOutputDirectory)
+    val jarFile = Jar.create(scala.tools.nsc.io.File(jarName), Directory(jarOutputDirectory), mainClass)
+    jarFile
+  }
+
+  def jarName = { jarOutputDirectory + File.separatorChar + projectName + ".jar" }
+
+  def jarOutputDirectory = {
+    val dir = outputDirectory + File.separatorChar + "jars"
+    new File(dir).mkdirs()
+    dir
+  }
+
+  def projectName: String
+
+  def mainClass = ""
+
+  def classOutputDirectory = {
+    val dir = outputDirectory + File.separatorChar + "classes"
+    new File(dir).mkdirs()
+    dir
+  }
+
+  def outputDirectory = "target"
+
+  /**
+   * Defines list of sub projects the this build depends on
+   */
+  def subProjects: List[SubProject] = Nil
+}
