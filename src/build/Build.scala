@@ -15,17 +15,18 @@ import scala.tools.nsc.io.Directory
 trait Build {
 
   var rootPath = "."
-    
+		  var classpath = ""
   def sourceFolders: List[String] = List("src")
   def testFolders: List[String] = List("src_test")
 
   def projectRoot(rootPath: String) = this.rootPath = rootPath
-  
+  def classpath(classpath: String) { this.classpath = classpath }
   def preCompile {}
 
   def compile {
     println("******************************************************")
-    println("* Compiling "+projectName+" in "+rootPath)
+    println("* Compiling " + projectName + " in " + rootPath)
+    println("* Classpath "+classpath.mkString)
     println("******************************************************")
     println("Compiling files in " + sourceFolders.mkString(","))
     try {
@@ -35,9 +36,9 @@ trait Build {
       settings.unchecked.value = true // enable detailed unchecked warnings
       settings.outputDirs.setSingleOutput(classOutputDirectory)
 
-      val pathList = List("bin") ::: CompileHelper.compilerPath ::: CompileHelper.libPath
+      val pathList = /*List("bin") :::*/ CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      settings.classpath.value = (pathList /*::: impliedClassPath*/ ).mkString(File.pathSeparator)
+      settings.classpath.value = classpath.mkString
 
       val reporter = new ConsoleReporter(settings)
       val compiler = new Global(settings, reporter)
@@ -47,9 +48,8 @@ trait Build {
 
       println("Trying to compile the following files: " + filesToCompile.mkString("\n"))
       (new compiler.Run).compile(filesToCompile)
-      println("About to stop")
       compiler.currentRun.cancel()
-      println("Stopped...")
+      println("Done...")
     } catch {
       case e: Throwable => e.printStackTrace()
     }

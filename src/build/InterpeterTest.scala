@@ -82,13 +82,11 @@ object InterpeterTest {
         case Results.Error => println("Error Build compile message: " + String.valueOf(bout))
         case Results.Success => {
           val output = String.valueOf(bout)
-          val className = output.substring(output.indexOf("defined class")+("defined class").size, output.length()).trim()
+          val className = output.substring(output.indexOf("defined class") + ("defined class").size, output.length()).trim()
           println("Build compile message: " + String.valueOf(bout))
           bout.reset()
-          val subProjectResult = interp.interpret("new "+className+"().subProjects.map(sp => sp.path).mkString(\",\")")
+          val subProjectResult = interp.interpret("new " + className + "().subProjects.map(sp => sp.path).mkString(\",\")")
           val subProjects = String.valueOf(bout)
-          println("subProjects == " + subProjects)
-          println("subProjects == " + subProjects.isEmpty())
           if (!subProjects.isEmpty()) {
 
             val projects = subProjects.split("=")(1).trim()
@@ -99,18 +97,21 @@ object InterpeterTest {
                 println("trying to compile project in path " + projectPath)
                 println(new File(".").getAbsolutePath())
                 runTargetOnBuild(target, projectPath + "/SubBuild.scala", projectPath)
+                settings.classpath.value = settings.classpath.value + File.pathSeparator + projectPath + File.separatorChar + "target" + File.separatorChar + "classes"
+                println("Classpath: "+settings.classpath.value)
               })
             }
             println("This project needs to compile the following projects first: " + projects)
           }
-          interp.interpret("val proj = new "+className+"()")
-          interp.interpret("proj.projectRoot(\""+rootPath+"\")")
+          interp.interpret("val proj = new " + className + "()")
+          interp.interpret("proj.projectRoot(\"" + rootPath + "\")")
+          interp.interpret("proj.classpath(\"" + settings.classpath.value + "\")")
           interp.interpret("proj." + target)
 
           println("Result: " + result.toString())
 
         }
-        case Results.Incomplete => 
+        case Results.Incomplete =>
       }
 
     } catch {

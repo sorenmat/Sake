@@ -19,7 +19,6 @@ object FileListing {
 
   // PRIVATE //
   def getFileListing(aStartingDir: File, filter: (File) => Boolean): List[File] = {
-    println("FileListing starting dir "+aStartingDir.getAbsolutePath())
     var result: List[File] = List()
     val filesAndDirs = aStartingDir.listFiles();
     if (filesAndDirs != null) {
