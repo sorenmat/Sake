@@ -11,7 +11,7 @@ import scala.tools.nsc.interpreter.Results
 object InterpeterTest {
 
   def main(args: Array[String]) {
-    InterpeterTest.runTargetOnBuild("compile", "src/TestBuild.scala")
+    InterpeterTest.runTargetOnBuild("compile", "src/TestBuild.scala", ".")
   }
 
   //  def compile {
@@ -60,7 +60,7 @@ object InterpeterTest {
   //
   //  }
 
-  def runTargetOnBuild(target: String, buildFile: String) {
+  def runTargetOnBuild(target: String, buildFile: String, rootPath: String) {
     try {
 
       val settings = new Settings
@@ -98,13 +98,14 @@ object InterpeterTest {
               projectsPaths.foreach(projectPath => {
                 println("trying to compile project in path " + projectPath)
                 println(new File(".").getAbsolutePath())
-                runTargetOnBuild(target, projectPath + "/SubBuild.scala")
+                runTargetOnBuild(target, projectPath + "/SubBuild.scala", projectPath)
               })
             }
             println("This project needs to compile the following projects first: " + projects)
           }
-
-          interp.interpret("new "+className+"()." + target)
+          interp.interpret("val proj = new "+className+"()")
+          interp.interpret("proj.projectRoot(\""+rootPath+"\")")
+          interp.interpret("proj." + target)
 
           println("Result: " + result.toString())
 

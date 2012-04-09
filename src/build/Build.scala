@@ -14,14 +14,18 @@ import scala.tools.nsc.io.Directory
  */
 trait Build {
 
+  var rootPath = "."
+    
   def sourceFolders: List[String] = List("src")
   def testFolders: List[String] = List("src_test")
 
+  def projectRoot(rootPath: String) = this.rootPath = rootPath
+  
   def preCompile {}
 
   def compile {
     println("******************************************************")
-    println("* Compiling "+projectName)
+    println("* Compiling "+projectName+" in "+rootPath)
     println("******************************************************")
     println("Compiling files in " + sourceFolders.mkString(","))
     try {
@@ -37,7 +41,7 @@ trait Build {
 
       val reporter = new ConsoleReporter(settings)
       val compiler = new Global(settings, reporter)
-      val filesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(folder), f => {
+      val filesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".scala")
       }).map(f => f.getAbsolutePath()))
 
@@ -67,7 +71,7 @@ trait Build {
   def jarName = { jarOutputDirectory + File.separatorChar + projectName + ".jar" }
 
   def jarOutputDirectory = {
-    val dir = outputDirectory + File.separatorChar + "jars"
+    val dir = rootPath + File.separatorChar + outputDirectory + File.separatorChar + "jars"
     new File(dir).mkdirs()
     dir
   }
@@ -77,7 +81,7 @@ trait Build {
   def mainClass = ""
 
   def classOutputDirectory = {
-    val dir = outputDirectory + File.separatorChar + "classes"
+    val dir = rootPath + File.separatorChar + outputDirectory + File.separatorChar + "classes"
     new File(dir).mkdirs()
     dir
   }
