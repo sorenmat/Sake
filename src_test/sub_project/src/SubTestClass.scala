@@ -1,3 +1,3 @@
-class SubTestClass {
+class SubTestClass extends SubSubTestClass {
   println("SubTestClass")
 }

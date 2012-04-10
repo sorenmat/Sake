@@ -1,4 +1,4 @@
-package build
+package com.sake.build
 
 import java.io.File
 object CompileHelper {

@@ -1,13 +1,15 @@
-package build
+package com.sake.build
 
-import scala.tools.ant.Scalac
+import java.io.File
+import scala.tools.nsc.io.Path.string2path
+import scala.tools.nsc.io.Directory
+import scala.tools.nsc.io.Jar
+import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.Global
 import scala.tools.nsc.Settings
-import scala.tools.nsc.reporters.ConsoleReporter
-import java.io.File
 import util.FileListing
-import scala.tools.nsc.io.Jar
-import scala.tools.nsc.io.Directory
+import com.sake.build.ivy.JarDependency
+
 /**
  * @author soren
  *
@@ -15,7 +17,7 @@ import scala.tools.nsc.io.Directory
 trait Build {
 
   var rootPath = "."
-		  var classpath = ""
+  var classpath = ""
   def sourceFolders: List[String] = List("src")
   def testFolders: List[String] = List("src_test")
 
@@ -26,7 +28,7 @@ trait Build {
   def compile {
     println("******************************************************")
     println("* Compiling " + projectName + " in " + rootPath)
-    println("* Classpath "+classpath.mkString)
+    println("* Classpath " + classpath.mkString)
     println("******************************************************")
     println("Compiling files in " + sourceFolders.mkString(","))
     try {
@@ -38,7 +40,7 @@ trait Build {
 
       val pathList = /*List("bin") :::*/ CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      settings.classpath.value = classpath.mkString
+      settings.classpath.value = classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getAbsolutePath()).mkString(""+File.pathSeparatorChar)
 
       val reporter = new ConsoleReporter(settings)
       val compiler = new Global(settings, reporter)
@@ -92,4 +94,6 @@ trait Build {
    * Defines list of sub projects the this build depends on
    */
   def subProjects: List[SubProject] = Nil
+  
+  def jarDependencies: List[JarDependency] = Nil
 }

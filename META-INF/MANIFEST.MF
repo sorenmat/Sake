@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Implementation-Vendor: com.sake.build
+Implementation-Title: Sake
+Implementation-Version: 0.1
+Implementation-Vendor-Id: com.sake.build
+Specification-Vendor: com.sake.build
+Specification-Title: Sake
+Specification-Version: 0.1
+Main-Class: com.sake.build.Sake
+Class-Path: scala-library.jar

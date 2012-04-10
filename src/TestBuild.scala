@@ -1,5 +1,5 @@
-import build.Build
-import build.SubProject
+import com.sake.build.SubProject
+import com.sake.build.Build
 class TestBuild extends Build {
 
   def projectName = "TestBuild"

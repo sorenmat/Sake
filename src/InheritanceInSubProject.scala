@@ -1,3 +1,0 @@
-class InheritanceInSubProject extends SubTestClass {
-
-}
