@@ -9,6 +9,11 @@ import java.io.File
 import org.apache.ivy.core.module.id.ModuleRevisionId
 import org.apache.ivy.core.settings.IvySettings
 
+/**
+ * Resolves dependencies via ivy. 
+ * @author soren
+ *
+ */
 object IvyResolver {
   def resolve(jarDep: JarDependency) = {
     //creates clear ivy settings
@@ -48,7 +53,6 @@ object IvyResolver {
 
     //so you can get the jar library
     val jarArtifactFile = report.getAllArtifactsReports()(0).getLocalFile()
-    println(jarArtifactFile.getAbsolutePath())
     jarArtifactFile
 
   }

@@ -10,12 +10,27 @@ object CompileHelper {
       throw new RuntimeException("Unable lo load scala interpreter from classpath (scala-compiler jar is missing?)", e)
   }
 
+  lazy val javaCompilerPath = try {
+    jarPathOfClass("com.sun.tools.javac.Main")
+  } catch {
+    case e =>
+      throw new RuntimeException("Unable lo load javac from classpath (tools jar is missing?)", e)
+  }
+  lazy val sakePath =
+    try {
+      jarPathOfClass("com.sake.build.Sake")
+    } catch {
+      case e =>
+        throw new RuntimeException("Unable lo load Sake from classpath (sake jar is missing?)", e)
+    }
+
   lazy val libPath = try {
     jarPathOfClass("scala.ScalaObject")
   } catch {
     case e =>
       throw new RuntimeException("Unable to load scala base object from classpath (scala-library jar is missing?)", e)
   }
+  
   private def jarPathOfClass(className: String) = try {
     val resource = className.split('.').mkString("/", "/", ".class")
     val path = getClass.getResource(resource).getPath

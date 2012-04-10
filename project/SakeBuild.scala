@@ -8,5 +8,5 @@ class SakeBuild extends Build {
     super.compile
   }
 
-  override def jarDependencies = List(JarDependency("org.apache.ivy", "ivy", "2.2.0"))
+  override def jarDependencies = List(new JarDependency("org.apache.ivy", "ivy", "2.2.0"))
 }

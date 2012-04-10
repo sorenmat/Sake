@@ -9,6 +9,9 @@ import scala.tools.nsc.Global
 import scala.tools.nsc.Settings
 import util.FileListing
 import com.sake.build.ivy.JarDependency
+import java.io.PrintWriter
+import java.io.StringWriter
+import com.sun.tools.javac._
 
 /**
  * @author soren
@@ -40,21 +43,38 @@ trait Build {
 
       val pathList = /*List("bin") :::*/ CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      settings.classpath.value = classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getAbsolutePath()).mkString(""+File.pathSeparatorChar)
+      settings.classpath.value = classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getAbsolutePath()).mkString("" + File.pathSeparatorChar)
 
       val reporter = new ConsoleReporter(settings)
       val compiler = new Global(settings, reporter)
-      val filesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
+      val scalaFilesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".scala")
       }).map(f => f.getAbsolutePath()))
 
-      println("Trying to compile the following files: " + filesToCompile.mkString("\n"))
-      (new compiler.Run).compile(filesToCompile)
+      val javaFilesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
+        f.getAbsoluteFile().toString().endsWith(".java")
+      }).map(f => f.getAbsolutePath()))
+
+      println("Trying to compile the following files: " + scalaFilesToCompile.mkString("\n"))
+      println("Compiling java")
+      val writer = new PrintWriter("/tmp/test.txt")
+      println("Using classpath " + settings.classpath.value)
+      exec((List("-cp", settings.classpath.value, "-d", "target/classes") ::: javaFilesToCompile).toArray, writer)
+
+      println("Compiling scala")
+      val runner = (new compiler.Run)
+      runner.compile(scalaFilesToCompile)
       compiler.currentRun.cancel()
       println("Done...")
     } catch {
       case e: Throwable => e.printStackTrace()
     }
+  }
+
+  def exec(args: Array[String], writer: PrintWriter) = {
+    Main.compile(args).intValue()
+    //    val m = Class.forName("com.sun.tools.javac.Main").getDeclaredMethod("compile", classOf[Array[String]], classOf[PrintWriter])
+    //    m.invoke(null, args, writer).asInstanceOf[java.lang.Integer].intValue
   }
 
   def postCompile {}
@@ -66,7 +86,7 @@ trait Build {
    */
   def packageJar = {
     println("Creating Jar '" + jarName + "' in directory " + jarOutputDirectory)
-    val jarFile = Jar.create(scala.tools.nsc.io.File(jarName), Directory(jarOutputDirectory), mainClass)
+    val jarFile = Jar.create(scala.tools.nsc.io.File(jarName), Directory(outputDirectory + File.separatorChar + "classes"), mainClass)
     jarFile
   }
 
@@ -94,6 +114,6 @@ trait Build {
    * Defines list of sub projects the this build depends on
    */
   def subProjects: List[SubProject] = Nil
-  
+
   def jarDependencies: List[JarDependency] = Nil
 }

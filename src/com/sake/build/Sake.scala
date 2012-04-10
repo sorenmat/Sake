@@ -3,24 +3,14 @@ package com.sake.build
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintWriter
+
 import scala.io.Source
 import scala.tools.nsc.interpreter.IMain
-import scala.tools.nsc.Settings
 import scala.tools.nsc.interpreter.Results
-import org.apache.ivy.Ivy
-import org.apache.ivy.core.module.id.ModuleRevisionId
-import org.apache.ivy.core.module.descriptor.ModuleDescriptor
-import org.apache.ivy.ant.IvyResolve
-import org.apache.ivy.core.resolve.ResolveEngine
-import org.apache.ivy.core.resolve.ResolveEngineSettings
-import org.apache.ivy.core.settings.IvySettings
-import org.apache.ivy.core.event.EventManager
-import org.apache.ivy.core.sort.SortEngine
-import org.apache.ivy.core.resolve.ResolveOptions
-import org.apache.ivy.core.module.descriptor.DefaultDependencyDescriptor
-import org.apache.ivy.plugins.resolver.URLResolver
-import org.apache.ivy.plugins.parser.xml.XmlModuleDescriptorWriter
-import org.apache.ivy.core.module.descriptor.DefaultModuleDescriptor
+import scala.tools.nsc.Settings
+
+import com.sake.build.ivy.IvyResolver
+import com.sake.build.ivy.JarDependency
 
 object Sake extends App {
 
@@ -37,8 +27,8 @@ object Sake extends App {
       settings.deprecation.value = true // enable detailed deprecation warnings
       settings.unchecked.value = true // enable detailed unchecked warnings
       settings.outputDirs.setSingleOutput("target")
-
-      val pathList = List("bin", "lib/ivy-2.2.0.jar") ::: CompileHelper.compilerPath ::: CompileHelper.libPath
+      
+      val pathList = List("/Users/soren/git/Sake/lib/tools.jar", "bin", IvyResolver.resolve(new JarDependency("org.apache.ivy", "ivy", "2.2.0")).getAbsolutePath()) ::: CompileHelper.sakePath ::: CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
       settings.classpath.value = (pathList /*::: impliedClassPath*/ ).mkString(File.pathSeparator)
 

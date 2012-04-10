@@ -1,12 +1,12 @@
 package com.sake.build.ivy
 import java.io.File
 
-case class JarDependency(groupId: String, artifactId: String, version: String) {
-  
+class JarDependency(val groupId: String, val artifactId: String, val version: String) {
+
   var resolve = true
   var jarFile = ""
-    
-  def this(jarFile: String) {
+
+  def this(jarFile: String) = {
     this("", "", "")
     resolve = false
     this.jarFile = jarFile
@@ -18,4 +18,7 @@ case class JarDependency(groupId: String, artifactId: String, version: String) {
     else
       new File(jarFile)
   }
+}
+object testing {
+  new JarDependency("")
 }
