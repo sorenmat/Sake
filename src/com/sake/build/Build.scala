@@ -24,16 +24,9 @@ trait Build {
   def sourceFolders: List[String] = List("src")
   def testFolders: List[String] = List("src_test")
 
-  def projectRoot(rootPath: String) = this.rootPath = rootPath
-  def classpath(classpath: String) { this.classpath = classpath }
   def preCompile {}
 
   def compile {
-    println("******************************************************")
-    println("* Compiling " + projectName + " in " + rootPath)
-    println("* Classpath " + classpath.mkString)
-    println("******************************************************")
-    println("Compiling files in " + sourceFolders.mkString(","))
     try {
 
       val settings = new Settings
@@ -41,31 +34,45 @@ trait Build {
       settings.unchecked.value = true // enable detailed unchecked warnings
       settings.outputDirs.setSingleOutput(classOutputDirectory)
 
-      val pathList = /*List("bin") :::*/ CompileHelper.compilerPath ::: CompileHelper.libPath
+      val pathList = CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      settings.classpath.value = classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getAbsolutePath()).mkString("" + File.pathSeparatorChar)
+      settings.classpath.value = classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
 
-      val reporter = new ConsoleReporter(settings)
-      val compiler = new Global(settings, reporter)
+      println("******************************************************")
+      println("* Compiling " + projectName + " in " + rootPath)
+      println("* Classpath " + settings.classpath.value)
+      println("* Compiling files in " + sourceFolders.mkString(","))
+      println("* Build root path = "+rootPath)
+      println("******************************************************")
+
+      
       val scalaFilesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".scala")
-      }).map(f => f.getAbsolutePath()))
+      }).map(f => f.getCanonicalPath()))
 
       val javaFilesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".java")
-      }).map(f => f.getAbsolutePath()))
+      }).map(f => f.getCanonicalPath()))
 
-      println("Trying to compile the following files: " + scalaFilesToCompile.mkString("\n"))
+      // java compile
       println("Compiling java")
       val writer = new PrintWriter("/tmp/test.txt")
-      println("Using classpath " + settings.classpath.value)
-      exec((List("-cp", settings.classpath.value, "-d", "target/classes") ::: javaFilesToCompile).toArray, writer)
-
-      println("Compiling scala")
-      val runner = (new compiler.Run)
-      runner.compile(scalaFilesToCompile)
-      compiler.currentRun.cancel()
-      println("Done...")
+      val sourcePath = sourceFolders.map(sf => new File(rootPath, sf).getCanonicalPath()).mkString(""+File.pathSeparatorChar)
+      println("SourcePath: "+sourcePath)
+      val result = exec((List("-cp", settings.classpath.value, "-d", rootPath+File.separator+"target/classes", "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray, writer)
+      println("Done compiling java with result "+result)
+      
+      // scala compile
+      if (!scalaFilesToCompile.isEmpty) {
+        println("Trying to compile the following files: " + scalaFilesToCompile.mkString("\n"))
+        println("Compiling scala")
+        val reporter = new ConsoleReporter(settings)
+        val compiler = new Global(settings, reporter)
+        val runner = (new compiler.Run)
+        runner.compile(scalaFilesToCompile)
+        compiler.currentRun.cancel()
+        println("Done...")
+      }
     } catch {
       case e: Throwable => e.printStackTrace()
     }
@@ -73,8 +80,6 @@ trait Build {
 
   def exec(args: Array[String], writer: PrintWriter) = {
     Main.compile(args).intValue()
-    //    val m = Class.forName("com.sun.tools.javac.Main").getDeclaredMethod("compile", classOf[Array[String]], classOf[PrintWriter])
-    //    m.invoke(null, args, writer).asInstanceOf[java.lang.Integer].intValue
   }
 
   def postCompile {}

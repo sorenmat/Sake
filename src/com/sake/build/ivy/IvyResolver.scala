@@ -8,6 +8,7 @@ import org.apache.ivy.Ivy
 import java.io.File
 import org.apache.ivy.core.module.id.ModuleRevisionId
 import org.apache.ivy.core.settings.IvySettings
+import org.apache.ivy.core.LogOptions
 
 /**
  * Resolves dependencies via ivy. 
@@ -47,6 +48,8 @@ object IvyResolver {
 
     val confs = List("default").toArray
     val resolveOptions = new ResolveOptions().setConfs(confs)
+    resolveOptions.setOutputReport(false)
+    resolveOptions.setLog(LogOptions.LOG_DOWNLOAD_ONLY)
 
     //init resolve report
     val report = ivy.resolve(ivyfile.toURI().toURL(), resolveOptions)

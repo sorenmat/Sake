@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="MacRoman" standalone="no"?>
+<jardesc>
+    <jar path="/Users/soren/bin/sake_lib/sake.jar"/>
+    <options buildIfNeeded="true" compress="true" descriptionLocation="/Sake/sake.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="false" overwrite="true" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+    <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+    <selectedProjects/>
+    <manifest generateManifest="true" manifestLocation="" manifestVersion="1.0" reuseManifest="false" saveManifest="false" usesManifest="true">
+        <sealing sealJar="false">
+            <packagesToSeal/>
+            <packagesToUnSeal/>
+        </sealing>
+    </manifest>
+    <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+        <javaElement handleIdentifier="=Sake/src"/>
+        <file path="/Sake/.classpath"/>
+        <file path="/Sake/.project"/>
+        <folder path="/Sake/target"/>
+        <javaElement handleIdentifier="=Sake/project"/>
+        <file path="/Sake/.gitignore"/>
+        <javaElement handleIdentifier="=Sake/test"/>
+        <folder path="/Sake/lib"/>
+        <folder path="/Sake/src_test"/>
+        <file path="/Sake/sake.sh"/>
+        <folder path="/Sake/META-INF"/>
+        <file path="/Sake/.DS_Store"/>
+        <file path="/Sake/build.sh"/>
+    </selectedElements>
+</jardesc>

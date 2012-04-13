@@ -20,8 +20,8 @@ object CompileHelper {
     try {
       jarPathOfClass("com.sake.build.Sake")
     } catch {
-      case e =>
-        throw new RuntimeException("Unable lo load Sake from classpath (sake jar is missing?)", e)
+      case e => Nil
+//        throw new RuntimeException("Unable lo load Sake from classpath (sake jar is missing?)", e)
     }
 
   lazy val libPath = try {
