@@ -1,5 +1,6 @@
 package com.sake.build
 
+
 import java.io.File
 import scala.tools.nsc.io.Path.string2path
 import scala.tools.nsc.io.Directory
@@ -12,6 +13,7 @@ import com.sake.build.ivy.JarDependency
 import java.io.PrintWriter
 import java.io.StringWriter
 import com.sun.tools.javac._
+
 
 /**
  * @author soren
@@ -60,6 +62,8 @@ trait Build {
       val sourcePath = sourceFolders.map(sf => new File(rootPath, sf).getCanonicalPath()).mkString(""+File.pathSeparatorChar)
       println("SourcePath: "+sourcePath)
       val result = exec((List("-cp", settings.classpath.value, "-d", rootPath+File.separator+"target/classes", "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray, writer)
+      if(result != 0)
+        throw new RuntimeException("Error compiling java code")
       println("Done compiling java with result "+result)
       
       // scala compile

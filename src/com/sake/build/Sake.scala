@@ -6,11 +6,25 @@ import java.io.PrintWriter
 import scala.io.Source
 import scala.tools.nsc.interpreter.IMain
 import scala.tools.nsc.interpreter.Results
+import scala.tools.nsc.interpreter.Results._
 import scala.tools.nsc.Settings
 import com.sake.build.ivy.IvyResolver
 import com.sake.build.ivy.JarDependency
+import com.sake.build.util.StringUtils._
 
 object Sake extends App {
+
+  case class Task(name: String)
+  case class Project(path: String)
+  /**
+   * Map of jars that subprojects use
+   */
+  var jarCache: Map[String, String] = Map()
+
+  /**
+   * Map of what task as been completed on what projects
+   */
+  var taskCache: List[(Project, Task)] = Nil
 
   override def main(args: Array[String]) {
     if (args.size == 0) {
@@ -50,32 +64,39 @@ object Sake extends App {
 
       val result = interp.interpret(projectFile) // "compile" project file
       result match {
-        case Results.Error => println("Error Build compile message: " + String.valueOf(bout))
+        case Results.Error => throw new RuntimeException("Error Build compile message: " + String.valueOf(bout))
         case Results.Success => {
           val output = String.valueOf(bout)
           val className = output.substring(output.indexOf("defined class") + ("defined class").size, output.length()).trim()
           bout.reset()
-          val subProjectResult = interp.interpret("new " + className + "().subProjects.map(sp => sp.path).mkString(\",\")")
+          executeLine(interp, "val " + className.toLowerCase() + " = new " + className + "()")
+          executeLine(interp, "" + className.toLowerCase() + ".rootPath = \"" + rootPath.trim() + "\"")
+          bout.reset()
+          val subProjectResult = interp.interpret(className.toLowerCase() + ".subProjects.map(sp => sp.path).mkString(\",\")")
           val subProjects = String.valueOf(bout)
-
           if (!subProjects.isEmpty()) {
 
             val projects = subProjects.split("=")(1).trim()
             if (projects != null && !projects.isEmpty() && !"\"\"".equals(projects)) {
+              println(className + " has the following subprojects " + projects)
               // compile sub projects
-              println("This project needs to compile the following projects first: " + projects)
               val projectsPaths = projects.split(",")
               projectsPaths.foreach(projectPath => {
 
                 println("Settings projectPath in runTargetOnBuild to " + new File(".", projectPath).getCanonicalPath())
                 runTargetOnBuild(target, new File(".", projectPath).getCanonicalPath())
-                settings.classpath.value = settings.classpath.value + File.pathSeparator + new File(projectPath + File.separatorChar + "target" + File.separatorChar + "classes").getCanonicalPath()
-                //                subProjectsClassPath = subProjectsClassPath + settings.classpath.value 
+                settings.classpath.value = settings.classpath.value + File.pathSeparator + projectsCompiledClasses(projectPath)
               })
             }
           }
+          val targetKey = (Project(rootPath), Task(target))
           val classpath = settings.classpath.value + File.pathSeparator + jarCache.values.mkString
-          executeBuild(interp, bout, className, rootPath, classpath, target)
+          if (!taskCache.contains(targetKey)) {
+            executeBuild(interp, bout, className, rootPath, classpath, target)
+            taskCache = targetKey :: taskCache // add target to taskCache
+          } else {
+            println("Task '" + targetKey + "'already executed")
+          }
 
           println("Result: " + result.toString())
           println("\nCompile done.")
@@ -95,29 +116,26 @@ object Sake extends App {
       bout.reset()
       val varName = className.toLowerCase()
 
-      interp.interpret("val " + varName + " = new " + className + "()")
-      
-//      println("[DEBUG] "+"" + varName + ".rootPath = \"" + rootPath.trim()+ "\"")
-      interp.interpret("" + varName + ".rootPath = \"" + rootPath.trim()+ "\"")
-      
-//      println("[DEBUG] "+"" + varName + ".classpath = \"" + classpath.trim() + "\"")
-      interp.interpret("" + varName + ".classpath = \"" + classpath.trim() + "\"")
-      
-      
-      println("\n" + String.valueOf(bout) + "\n")
-      interp.interpret("" + varName + "." + target)
-      println("\nCompiled project file resultet in: " + String.valueOf(bout) + "\n")
+      executeLine(interp, "" + varName + ".classpath = \"" + trim(classpath) + "\"")
+      executeLine(interp, "" + varName + "." + target)
+
       bout.reset()
-      interp.interpret("" + varName + ".jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(\",\")")
+      executeLine(interp, "" + varName + ".jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(\",\")")
       val subprojectDependenciesTmp = String.valueOf(bout)
       val subprojectDependencies = subprojectDependenciesTmp.substring(subprojectDependenciesTmp.indexOf(" = ") + 3)
       jarCache += className -> subprojectDependencies.split(",").mkString(File.pathSeparator)
     }
   }
-  /**
-   * List of jars that subprojects use
-   */
-  var jarCache: Map[String, String] = Map()
+
+  def executeLine(interp: IMain, line: String) {
+    interp.interpret(line) match {
+      case Success =>
+      case Incomplete => throw new RuntimeException("Incomplete")
+      case Error => throw new RuntimeException("Error in line: " + line)
+    }
+  }
+
+  def projectsCompiledClasses(projectPath: String) = new File(projectPath + File.separatorChar + "target" + File.separatorChar + "classes").getCanonicalPath()
 
   def findBuildFile(projectPath: String) = {
     val files = new File(projectPath).listFiles()
