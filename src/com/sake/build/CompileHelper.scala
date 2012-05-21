@@ -11,9 +11,12 @@ object CompileHelper {
   }
 
   lazy val javaCompilerPath = try {
-    jarPathOfClass("com.sun.tools.javac.Main")
+    val jarPathJavaC = jarPathOfClass("com.sun.tools.javac.Main")
+    println("Classpath to javac "+jarPathJavaC.mkString)
+    jarPathJavaC
   } catch {
     case e =>
+      e.printStackTrace()
       throw new RuntimeException("Unable lo load javac from classpath (tools jar is missing?)", e)
   }
   lazy val sakePath =

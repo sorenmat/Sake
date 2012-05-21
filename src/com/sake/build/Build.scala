@@ -1,6 +1,5 @@
 package com.sake.build
 
-
 import java.io.File
 import scala.tools.nsc.io.Path.string2path
 import scala.tools.nsc.io.Directory
@@ -13,7 +12,8 @@ import com.sake.build.ivy.JarDependency
 import java.io.PrintWriter
 import java.io.StringWriter
 import com.sun.tools.javac._
-
+import com.sake.build.ivy.IvyResolver$
+import com.sake.build.ivy.IvyResolver
 
 /**
  * @author soren
@@ -38,16 +38,17 @@ trait Build {
 
       val pathList = CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      settings.classpath.value = classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
-
-      println("******************************************************")
+      val ivyXMLDepends = IvyResolver.resolveIvyXML("ivy.xml")
+      println("Deps from ivy xml: "+ivyXMLDepends.mkString(File.pathSeparator))
+      settings.classpath.value = ivyXMLDepends.mkString(File.pathSeparator) + classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
+      println("\n\n")
+      println("**********************************************************************************************************************")
       println("* Compiling " + projectName + " in " + rootPath)
       println("* Classpath " + settings.classpath.value)
       println("* Compiling files in " + sourceFolders.mkString(","))
-      println("* Build root path = "+rootPath)
-      println("******************************************************")
+      println("* Build root path = " + rootPath)
+      println("**********************************************************************************************************************")
 
-      
       val scalaFilesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".scala")
       }).map(f => f.getCanonicalPath()))
@@ -56,16 +57,19 @@ trait Build {
         f.getAbsoluteFile().toString().endsWith(".java")
       }).map(f => f.getCanonicalPath()))
 
-      // java compile
-      println("Compiling java")
-      val writer = new PrintWriter("/tmp/test.txt")
-      val sourcePath = sourceFolders.map(sf => new File(rootPath, sf).getCanonicalPath()).mkString(""+File.pathSeparatorChar)
-      println("SourcePath: "+sourcePath)
-      val result = exec((List("-cp", settings.classpath.value, "-d", rootPath+File.separator+"target/classes", "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray, writer)
-      if(result != 0)
-        throw new RuntimeException("Error compiling java code")
-      println("Done compiling java with result "+result)
-      
+      if (!javaFilesToCompile.isEmpty) {
+
+        // java compile
+        println("Compiling java")
+        val writer = new PrintWriter("/tmp/test.txt")
+        val sourcePath = sourceFolders.map(sf => new File(rootPath, sf).getCanonicalPath()).mkString("" + File.pathSeparatorChar)
+        println("SourcePath: " + sourcePath)
+        val result = exec((List("-cp", settings.classpath.value, "-d", rootPath + File.separator + "target/classes", "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray, writer)
+        if (result != 0)
+          throw new RuntimeException("Error compiling java code")
+        println("Done compiling java with result " + result)
+      }
+
       // scala compile
       if (!scalaFilesToCompile.isEmpty) {
         println("Trying to compile the following files: " + scalaFilesToCompile.mkString("\n"))

@@ -16,8 +16,8 @@ import org.apache.ivy.core.LogOptions
  *
  */
 object IvyResolver {
-  def resolve(jarDep: JarDependency) = {
-    //creates clear ivy settings
+  
+  private def getIvy = {
     val ivySettings = new IvySettings()
     //url resolver for configuration of maven repo
     val resolver = new URLResolver()
@@ -31,7 +31,20 @@ object IvyResolver {
     ivySettings.setDefaultResolver(resolver.getName())
     //creates an Ivy instance with settings
     val ivy = Ivy.newInstance(ivySettings)
-
+    ivy
+  }
+  
+  private def defaultresolveOptions = {
+        val confs = List("default").toArray
+    val resolveOptions = new ResolveOptions().setConfs(confs)
+    resolveOptions.setOutputReport(false)
+    resolveOptions.setLog(LogOptions.LOG_DOWNLOAD_ONLY)
+    resolveOptions
+  }
+  
+  def resolve(jarDep: JarDependency) = {
+    //creates clear ivy settings
+    val ivy = getIvy
     val ivyfile = File.createTempFile("ivy", ".xml")
     ivyfile.deleteOnExit()
 
@@ -46,17 +59,24 @@ object IvyResolver {
     //creates an ivy configuration file
     XmlModuleDescriptorWriter.write(md, ivyfile)
 
-    val confs = List("default").toArray
-    val resolveOptions = new ResolveOptions().setConfs(confs)
-    resolveOptions.setOutputReport(false)
-    resolveOptions.setLog(LogOptions.LOG_DOWNLOAD_ONLY)
+
 
     //init resolve report
-    val report = ivy.resolve(ivyfile.toURI().toURL(), resolveOptions)
+    val report = ivy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
 
     //so you can get the jar library
     val jarArtifactFile = report.getAllArtifactsReports()(0).getLocalFile()
     jarArtifactFile
 
+  }
+  
+  def resolveIvyXML(file: String) = {
+    val ivyfile = new File(file) 
+    //init resolve report
+    val report = getIvy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
+
+    //so you can get the jar library
+    val jarArtifactFile = report.getAllArtifactsReports().map(f => f.getLocalFile())
+    jarArtifactFile
   }
 }

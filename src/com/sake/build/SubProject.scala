@@ -1,5 +1,11 @@
 package com.sake.build
+import java.io.File
 
-case class SubProject(path: String) {
+class SubProject(fullPath: File) {
 
+  def this(relativePath: String) = {
+    this(new File(relativePath).getCanonicalFile())
+  }
+  
+  def path: String = fullPath.getCanonicalPath()
 }
