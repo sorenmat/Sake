@@ -28,6 +28,8 @@ trait Build {
 
   def preCompile {}
 
+  def ivyXML = "ivy.xml"
+    
   def compile {
     try {
 
@@ -38,7 +40,7 @@ trait Build {
 
       val pathList = CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      val ivyXMLDepends = IvyResolver.resolveIvyXML("ivy.xml")
+      val ivyXMLDepends = IvyResolver.resolveIvyXML(ivyXML)
       println("Deps from ivy xml: "+ivyXMLDepends.mkString(File.pathSeparator))
       settings.classpath.value = ivyXMLDepends.mkString(File.pathSeparator) + classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
       println("\n\n")
