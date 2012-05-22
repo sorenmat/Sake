@@ -30,19 +30,18 @@ object Sake extends App {
       println("* packageJar - Creates a jar file from the compiled classes.")
 
     } else {
-    areWeInProjectRoot
-    super.main(args)
-    val path = if (args.size > 1) args(1) else "."
-    Sake.runTargetOnBuild(args(0), path)  
+      areWeInProjectRoot
+      super.main(args)
+      val path = if (args.size > 1) args(1) else "."
+      Sake.runTargetOnBuild(args(0), path)
     }
-    
   }
 
   /**
-   * 
+   *
    * @return Projetname, List of exported jar dependencies.
    */
-  def runTargetOnBuild(target: String, rootPath: String)  {
+  def runTargetOnBuild(target: String, rootPath: String) {
     try {
       val targetKey = (Project(rootPath), Task(target))
       if (!taskCache.contains(targetKey)) {
@@ -54,7 +53,7 @@ object Sake extends App {
         settings.outputDirs.setSingleOutput("target")
 
         // bin is a eclipse hack
-        val pathList = List("bin",  IvyResolver.resolve(new JarDependency("org.apache.ivy", "ivy", "2.2.0")).getAbsolutePath()) ::: CompileHelper.sakePath ::: CompileHelper.compilerPath ::: CompileHelper.javaCompilerPath ::: CompileHelper.libPath
+        val pathList = List("bin", IvyResolver.resolve(new JarDependency("org.apache.ivy", "ivy", "2.2.0")).get.getAbsolutePath()) ::: CompileHelper.sakePath ::: CompileHelper.compilerPath ::: CompileHelper.javaCompilerPath ::: CompileHelper.libPath
         settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
         settings.classpath.value = pathList.mkString(File.pathSeparator)
 
@@ -68,7 +67,7 @@ object Sake extends App {
 
         val result = interp.interpret(projectFile) // "compile" project file
         val stop = System.currentTimeMillis()
-        printf("Interpetation of build file took %s ms.\n", (stop-start))
+        printf("Interpetation of build file took %s ms.\n", (stop - start))
         result match {
           case Results.Error => throw new RuntimeException("Error Build compile message: " + String.valueOf(bout))
           case Results.Success => {
@@ -80,7 +79,7 @@ object Sake extends App {
             bout.reset()
             val subProjectResult = interp.interpret(className.toLowerCase() + ".subProjects.map(sp => sp.path).mkString(\",\")")
             val subProjects = String.valueOf(bout)
-            
+
             var buildedSubProjects: List[String] = Nil
             if (!subProjects.isEmpty()) {
 
@@ -95,8 +94,8 @@ object Sake extends App {
                   runTargetOnBuild(target, new File(projectPath).getCanonicalPath())
                   settings.classpath.value = settings.classpath.value + File.pathSeparator + projectsCompiledClasses(projectPath)
                   debug("Returned ClassPath: " + settings.classpath.value)
-                  println("\n**\n**\n" + className + "->" + new File(projectPath).getCanonicalPath() + "/target/classes"+"\n")
-                  println(settings.classpath.value+"\n\n\n\n\n")
+                  println("\n**\n**\n" + className + "->" + new File(projectPath).getCanonicalPath() + "/target/classes" + "\n")
+                  println(settings.classpath.value + "\n\n\n\n\n")
                   buildedSubProjects = className :: buildedSubProjects
                 })
               }
@@ -118,7 +117,6 @@ object Sake extends App {
     }
 
   }
-  
 
   /**
    * Execute the build file. The interp assumes the build file as been loaded

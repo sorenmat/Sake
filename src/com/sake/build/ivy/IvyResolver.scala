@@ -11,12 +11,12 @@ import org.apache.ivy.core.settings.IvySettings
 import org.apache.ivy.core.LogOptions
 
 /**
- * Resolves dependencies via ivy. 
+ * Resolves dependencies via ivy.
  * @author soren
  *
  */
 object IvyResolver {
-  
+
   private def getIvy = {
     val ivySettings = new IvySettings()
     //url resolver for configuration of maven repo
@@ -33,22 +33,22 @@ object IvyResolver {
     val ivy = Ivy.newInstance(ivySettings)
     ivy
   }
-  
+
   private def defaultresolveOptions = {
-        val confs = List("default").toArray
+    val confs = List("default").toArray
     val resolveOptions = new ResolveOptions().setConfs(confs)
     resolveOptions.setOutputReport(false)
     resolveOptions.setLog(LogOptions.LOG_DOWNLOAD_ONLY)
     resolveOptions
   }
-  
+
   def resolve(jarDep: JarDependency) = {
     //creates clear ivy settings
     val ivy = getIvy
     val ivyfile = File.createTempFile("ivy", ".xml")
     ivyfile.deleteOnExit()
 
-    val dep = List(jarDep.groupId, jarDep.artifactId, jarDep.version).toArray
+    val dep = List(jarDep.organization, jarDep.name, jarDep.revision).toArray
 
     val md = DefaultModuleDescriptor.newDefaultInstance(ModuleRevisionId.newInstance(dep(0), dep(1) + "-caller", "working"))
 
@@ -59,24 +59,30 @@ object IvyResolver {
     //creates an ivy configuration file
     XmlModuleDescriptorWriter.write(md, ivyfile)
 
-
-
     //init resolve report
     val report = ivy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
 
     //so you can get the jar library
-    val jarArtifactFile = report.getAllArtifactsReports()(0).getLocalFile()
-    jarArtifactFile
+    val artifacts = report.getAllArtifactsReports()
+    if (artifacts.size > 0) {
+      val jarArtifactFile = artifacts(0).getLocalFile()
+      Some(jarArtifactFile)
+    } else
+      None
 
   }
-  
+
   def resolveIvyXML(file: String) = {
-    val ivyfile = new File(file) 
+    val ivyfile = new File(file)
     //init resolve report
     val report = getIvy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
 
     //so you can get the jar library
-    val jarArtifactFile = report.getAllArtifactsReports().map(f => f.getLocalFile())
+    val jarArtifactFile = report.getAllArtifactsReports().map(f => {
+      val moduleRevId = f.getArtifact().getModuleRevisionId()
+      new JarDependency(moduleRevId.getOrganisation(), moduleRevId.getName(), moduleRevId.getRevision())
+    })
     jarArtifactFile
   }
+
 }

@@ -14,6 +14,8 @@ import java.io.StringWriter
 import com.sun.tools.javac._
 import com.sake.build.ivy.IvyResolver$
 import com.sake.build.ivy.IvyResolver
+import org.apache.ivy.ant.IvyPublish
+import com.sake.build.ivy.IvyPublisher
 
 /**
  * @author soren
@@ -30,6 +32,8 @@ trait Build {
 
   def ivyXML = "ivy.xml"
     
+  private def internalJarDepenencies = IvyResolver.resolveIvyXML(ivyXML).toList ::: jarDependencies
+    
   def compile {
     try {
 
@@ -41,8 +45,9 @@ trait Build {
       val pathList = CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
       val ivyXMLDepends = IvyResolver.resolveIvyXML(ivyXML)
-      println("Deps from ivy xml: "+ivyXMLDepends.mkString(File.pathSeparator))
-      settings.classpath.value = ivyXMLDepends.mkString(File.pathSeparator) + classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
+      println("Deps from ivy xml: "+ivyXMLDepends.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator))
+      classpath = ivyXMLDepends.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator) + classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
+      settings.classpath.value = classpath
       println("\n\n")
       println("**********************************************************************************************************************")
       println("* Compiling " + projectName + " in " + rootPath)
@@ -105,6 +110,11 @@ trait Build {
     jarFile
   }
 
+  def publish {
+    println("publish local")
+    IvyPublisher.publish("com.schantz", "foundation", "1.0", internalJarDepenencies)
+  }
+  
   def jarName = { jarOutputDirectory + File.separatorChar + projectName + ".jar" }
 
   def jarOutputDirectory = {
