@@ -9,6 +9,9 @@ import java.io.File
 import org.apache.ivy.core.module.id.ModuleRevisionId
 import org.apache.ivy.core.settings.IvySettings
 import org.apache.ivy.core.LogOptions
+import org.apache.ivy.util.MessageLogger
+import org.apache.ivy.util.DefaultMessageLogger
+import org.apache.ivy.util.Message
 
 /**
  * Resolves dependencies via ivy.
@@ -17,20 +20,23 @@ import org.apache.ivy.core.LogOptions
  */
 object IvyResolver {
 
-  private def getIvy = {
-    val ivySettings = new IvySettings()
-    //url resolver for configuration of maven repo
-    val resolver = new URLResolver()
-    resolver.setM2compatible(true)
-    resolver.setName("central")
-    //you can specify the url resolution pattern strategy
-    resolver.addArtifactPattern("http://repo1.maven.org/maven2/" + "[organisation]/[module]/[revision]/[artifact](-[revision]).[ext]")
-    //adding maven repo resolver
-    ivySettings.addResolver(resolver)
-    //set to the default resolver
-    ivySettings.setDefaultResolver(resolver.getName())
-    //creates an Ivy instance with settings
-    val ivy = Ivy.newInstance(ivySettings)
+  lazy val getIvy = {
+    //    val ivySettings = new IvySettings()
+    //    //url resolver for configuration of maven repo
+    //    val resolver = new URLResolver()
+    //    resolver.setM2compatible(true)
+    //    resolver.setName("central")
+    //    //you can specify the url resolution pattern strategy
+    //    resolver.addArtifactPattern("http://repo1.maven.org/maven2/" + "[organisation]/[module]/[revision]/[artifact](-[revision]).[ext]")
+    //    //adding maven repo resolver
+    //    ivySettings.addResolver(resolver)
+    //    //set to the default resolver
+    //    ivySettings.setDefaultResolver(resolver.getName())
+    val ivyFile = new IvySettings()
+    ivyFile.load(new java.io.File("/Users/soren/code/buildtest/Foundation/ivysettings.xml"))
+    //    creates an Ivy instance with settings
+    val ivy = Ivy.newInstance(ivyFile)
+    ivy.getLoggerEngine.setDefaultLogger(new DefaultMessageLogger(Message.MSG_INFO))
     ivy
   }
 
@@ -52,8 +58,7 @@ object IvyResolver {
 
     val md = DefaultModuleDescriptor.newDefaultInstance(ModuleRevisionId.newInstance(dep(0), dep(1) + "-caller", "working"))
 
-    val dd = new DefaultDependencyDescriptor(md,
-      ModuleRevisionId.newInstance(dep(0), dep(1), dep(2)), false, false, true)
+    val dd = new DefaultDependencyDescriptor(md, ModuleRevisionId.newInstance(dep(0), dep(1), dep(2)), false, false, true)
     md.addDependency(dd)
 
     //creates an ivy configuration file
@@ -64,15 +69,23 @@ object IvyResolver {
 
     //so you can get the jar library
     val artifacts = report.getAllArtifactsReports()
-    if (artifacts.size > 0) {
-      val jarArtifactFile = artifacts(0).getLocalFile()
-      Some(jarArtifactFile)
+    val result = if (artifacts.size > 0) {
+      println(artifacts(0).getArtifact.getConfigurations.mkString(", "));
+      val arts = artifacts.map(f =>
+        if (f.getArtifact.getConfigurations.contains("master") || f.getArtifact.getConfigurations.contains("default"))
+          Some(f.getLocalFile)
+        else
+          None)
+      val tmp = arts.flatMap(f => f)
+      println("----> " + tmp.mkString(", "))
+      Some(tmp(0))
     } else
       None
-
+    result
   }
 
   def resolveIvyXML(file: String) = {
+    try {
     val ivyfile = new File(file)
     //init resolve report
     val report = getIvy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
@@ -83,6 +96,10 @@ object IvyResolver {
       new JarDependency(moduleRevId.getOrganisation(), moduleRevId.getName(), moduleRevId.getRevision())
     })
     jarArtifactFile
+      
+    } catch {
+      case t: Throwable => throw new RuntimeException(t)
+    }
   }
 
 }

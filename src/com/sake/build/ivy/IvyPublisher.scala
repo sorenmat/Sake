@@ -39,10 +39,10 @@ object IvyPublisher {
     resolveOptions
   }
 
-  def publish(org: String, name: String, revision: String, deps: List[JarDependency]) = {
+  def publish(fromFile: File, org: String, name: String, revision: String, deps: List[JarDependency]) = {
     try {
-
-      val cacheDir = new File("/Users/soren/.ivy2/cache")
+      println("Using default cache dir located at " + getIvy.getSettings.getDefaultCache.getCanonicalPath)
+      val cacheDir = getIvy.getSettings.getDefaultCache
       if (!new File(cacheDir, org + File.separator + name + File.separator + "jars").exists()) {
 
         val file = new File(cacheDir, org + File.separator + name + File.separator + "jars")
@@ -50,8 +50,7 @@ object IvyPublisher {
         file.mkdirs()
       }
 
-      val toFile = new File(new File(cacheDir, org + File.separator + name) + File.separator + "jars", "foundation-1.0.jar")
-      val fromFile = new File("/Users/soren/code/buildtest/Foundation/target/jars/Foundation.jar")
+      val toFile = new File(new File(cacheDir, org + File.separator + name) + File.separator + "jars", name + "-" + revision + ".jar")
       copyFile(fromFile, toFile)
 
       val ivyFile = new File(cacheDir, org + File.separator + name + File.separator + "ivy-" + revision + ".xml")
@@ -74,7 +73,7 @@ object IvyPublisher {
       <info organisation={ org } module={ module } revision={ rev } status={ status } publication={ pubDate }>
       </info>
       <publications>
-        <artifact name="foundation" type="jar" ext="jar" conf="master"/>
+        <artifact name={ module } type="jar" ext="jar" conf="default"/>
       </publications>
       {
         if (!deps.isEmpty) {
@@ -108,8 +107,8 @@ object IvyPublisher {
   }
 
   def main(args: Array[String]) {
-    val deps = List(new JarDependency("commons-collections", "commons-collections", "3.1"))
-    publish("com.schantz", "foundation", "1.0", deps)
+//    val deps = List(new JarDependency("commons-collections", "commons-collections", "3.1"))
+//    publish(new File(""), "com.schantz", "foundation", "1.0", deps)
     val file = IvyResolver.resolve(new JarDependency("com.schantz", "foundation", "1.0"))
     println(file.get.getCanonicalPath())
   }

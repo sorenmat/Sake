@@ -24,16 +24,18 @@ import com.sake.build.ivy.IvyPublisher
 trait Build {
 
   var rootPath = "."
-  var classpath = ""
+  var internalClasspath = ""
   def sourceFolders: List[String] = List("src")
   def testFolders: List[String] = List("src_test")
 
   def preCompile {}
 
   def ivyXML = "ivy.xml"
-    
-  private def internalJarDepenencies = IvyResolver.resolveIvyXML(ivyXML).toList ::: jarDependencies
-    
+
+  def classpath = {
+    IvyResolver.resolveIvyXML(ivyXML).toList ::: jarDependencies
+  }
+
   def compile {
     try {
 
@@ -44,10 +46,8 @@ trait Build {
 
       val pathList = CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      val ivyXMLDepends = IvyResolver.resolveIvyXML(ivyXML)
-      println("Deps from ivy xml: "+ivyXMLDepends.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator))
-      classpath = ivyXMLDepends.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator) + classpath.mkString + File.pathSeparatorChar + jarDependencies.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
-      settings.classpath.value = classpath
+      val projectclasspath = classpath.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
+      settings.classpath.value = projectclasspath
       println("\n\n")
       println("**********************************************************************************************************************")
       println("* Compiling " + projectName + " in " + rootPath)
@@ -112,9 +112,9 @@ trait Build {
 
   def publish {
     println("publish local")
-    IvyPublisher.publish("com.schantz", "foundation", "1.0", internalJarDepenencies)
+    IvyPublisher.publish(new File(jarName), "com.schantz", "foundation", "1.0", classpath)
   }
-  
+
   def jarName = { jarOutputDirectory + File.separatorChar + projectName + ".jar" }
 
   def jarOutputDirectory = {

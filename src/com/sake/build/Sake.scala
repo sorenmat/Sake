@@ -126,7 +126,7 @@ object Sake extends App {
       bout.reset()
       val varName = className.toLowerCase()
       debug("executeBuild classpath: " + trim(classpath))
-      executeLine(interp, "" + varName + ".classpath = \"" + trim(classpath) + "\"")
+//      executeLine(interp, "" + varName + ".classpath = \"" + trim(classpath) + "\"")
       executeLine(interp, "" + varName + "." + target)
       bout.reset()
     }
