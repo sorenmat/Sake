@@ -6,26 +6,44 @@ import java.io.{IOException, FileOutputStream, FileInputStream, File}
 import com.sake.build.Build
 
 /**
- * Created by IntelliJ IDEA.
- * User: soren
- * Date: 5/30/12
- * Time: 16:58
- * To change this template use File | Settings | File Templates.
+ * Trait for adding support for building war files
  */
-
 trait Web extends Build {
 
+  /**
+   * Root directory to look for web resources (.js, .css, .html etc.) to be included in the war file
+   */
   def webRoot: String
 
-  def packageWar = {
+  /**
+   * The directory where the war file will be created
+   */
+  def warTargetDirectory = "target/war"
+
+  /**
+   * The filename of the war file, default is project name with the war extension
+   */
+  def warFileName = projectName + ".war"
+
+  /**
+   * Sake task to create a war file
+   */
+  def packageWar {
     val webDir = new File(webRoot)
     if (!webDir.exists())
       throw new RuntimeException("Unable to find webroot " + webRoot)
 
-
     createWarFile("/tmp/test.zip", includedFiles(webDir))
   }
 
+
+  /**
+   * Method to find the files to be included in the war package.
+   * This should be overridden if there are changes to what should be included in the war
+   *
+   * @param webDir The web root source directory to include files from
+   * @return a list of tuples (fullPath to File, path inside war file)
+   */
   def includedFiles(webDir: File) = {
     val files = recursiveListFiles(webDir).map(f => (f.getAbsolutePath, f.getAbsolutePath.replace(webRoot, ""))).toList
     val jarFiles = jarDependencies.map(jar => {
@@ -41,38 +59,39 @@ trait Web extends Build {
     newfiles
   }
 
+  /**
+   * creates the jar file from the files specified via the includedFiles method
+   *
+   * @param outFilename Name of the war file
+   * @param filenames List of tuples (fullPath to File, path inside war file)
+   */
   def createWarFile(outFilename: String,  filenames: List[(String, String)]) {
-
-
     val buf = new Array[Byte](1024)
 
     try {
       // Create the ZIP file
-      val out = new ZipOutputStream(new FileOutputStream(outFilename));
+      val out = new ZipOutputStream(new FileOutputStream(outFilename))
 
       // Compress the files
       filenames.foreach(filename => {
         val (fullPath, zipPath) = filename
-        val in = new FileInputStream(fullPath);
+        val in = new FileInputStream(fullPath)
 
         // Add ZIP entry to output stream.
         println("Adding to zip "+zipPath)
-        out.putNextEntry(new ZipEntry(zipPath));
-
-        // Transfer bytes from the file to the ZIP file
+        out.putNextEntry(new ZipEntry(zipPath))
 
         Stream.continually(in.read(buf)).takeWhile(_ != -1).foreach(
-          //md.update(buffer, 0, _)
            out.write(buf, 0, _)
         )
 
         // Complete the entry
-        out.closeEntry();
-        in.close();
+        out.closeEntry()
+        in.close()
       })
 
       // Complete the ZIP file
-      out.close();
+      out.close()
     } catch {
       case e: IOException => e.printStackTrace()
     }
