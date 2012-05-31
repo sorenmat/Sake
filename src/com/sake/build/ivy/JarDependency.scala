@@ -18,6 +18,8 @@ class JarDependency(val organization: String, val name: String, val revision: St
     else
       new File(jarFile)
   }
+  
+  override def toString = organization+":"+name+":"+revision
 }
 object testing {
   new JarDependency("")

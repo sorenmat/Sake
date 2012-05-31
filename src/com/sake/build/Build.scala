@@ -23,6 +23,11 @@ import com.sake.build.ivy.IvyPublisher
  */
 trait Build {
 
+  lazy val tasks = List( 
+      ("compile", "compiles the main code"),
+      ("test", "running the test code")
+      )
+      
   var rootPath = "."
   var internalClasspath = ""
   def sourceFolders: List[String] = List("src")
@@ -32,35 +37,47 @@ trait Build {
 
   def ivyXML = "ivy.xml"
 
+  def javaOptions = List[String]()
+
   def classpath = {
     IvyResolver.resolveIvyXML(ivyXML).toList ::: jarDependencies
   }
 
-  def compile {
+  def compile =  {
+    compileFunction(sourceFolders, "classes")
+  }
+
+  def compileTest = {
+    compileFunction(testFolders, "testclasses", jarTestDependencies: _*)
+  }
+
+  def compileFunction(folders: List[String], outputDir: String, jarDeps: JarDependency*) = {
     try {
 
       val settings = new Settings
       settings.deprecation.value = true // enable detailed deprecation warnings
       settings.unchecked.value = true // enable detailed unchecked warnings
+      settings.target.value = "1.5"
+
       settings.outputDirs.setSingleOutput(classOutputDirectory)
 
       val pathList = CompileHelper.compilerPath ::: CompileHelper.libPath
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
-      val projectclasspath = classpath.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
+      val projectclasspath = classpath.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator) + File.pathSeparator + jarDeps.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
       settings.classpath.value = projectclasspath
       println("\n\n")
       println("**********************************************************************************************************************")
       println("* Compiling " + projectName + " in " + rootPath)
       println("* Classpath " + settings.classpath.value)
-      println("* Compiling files in " + sourceFolders.mkString(","))
+      println("* Compiling files in " + folders.mkString(","))
       println("* Build root path = " + rootPath)
       println("**********************************************************************************************************************")
 
-      val scalaFilesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
+      val scalaFilesToCompile = folders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".scala")
       }).map(f => f.getCanonicalPath()))
 
-      val javaFilesToCompile = sourceFolders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
+      val javaFilesToCompile = folders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".java")
       }).map(f => f.getCanonicalPath()))
 
@@ -69,9 +86,11 @@ trait Build {
         // java compile
         println("Compiling java")
         val writer = new PrintWriter("/tmp/test.txt")
-        val sourcePath = sourceFolders.map(sf => new File(rootPath, sf).getCanonicalPath()).mkString("" + File.pathSeparatorChar)
+        val sourcePath = folders.map(sf => new File(rootPath, sf).getCanonicalPath()).mkString("" + File.pathSeparatorChar)
         println("SourcePath: " + sourcePath)
-        val result = exec((List("-cp", settings.classpath.value, "-d", rootPath + File.separator + "target/classes", "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray, writer)
+        val javaParameters = (javaOptions ::: List("-cp", settings.classpath.value, "-d", rootPath + File.separator + "target/"+outputDir, "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray
+        //        println("Java parameters: "+javaParameters.mkString(", "))
+        val result = exec(javaParameters, writer)
         if (result != 0)
           throw new RuntimeException("Error compiling java code")
         println("Done compiling java with result " + result)
@@ -111,8 +130,9 @@ trait Build {
   }
 
   def publish {
-    println("publish local")
-    IvyPublisher.publish(new File(jarName), "com.schantz", "foundation", "1.0", classpath)
+    println("publish local..." + projectName)
+    println("Publish depenency " + classpath.map(f => f.toString()).mkString(", "))
+    IvyPublisher.publish(new File(jarName), "com.schantz", projectName, "1.0", classpath)
   }
 
   def jarName = { jarOutputDirectory + File.separatorChar + projectName + ".jar" }
@@ -128,8 +148,12 @@ trait Build {
   def mainClass = ""
 
   def classOutputDirectory = {
+    //FIXME split up test and main
     val dir = rootPath + File.separatorChar + outputDirectory + File.separatorChar + "classes"
     new File(dir).mkdirs()
+    
+    val testdir = rootPath + File.separatorChar + outputDirectory + File.separatorChar + "testclasses"
+    new File(testdir).mkdirs()
     dir
   }
 
@@ -141,4 +165,5 @@ trait Build {
   def subProjects: List[SubProject] = Nil
 
   def jarDependencies: List[JarDependency] = Nil
+  def jarTestDependencies: List[JarDependency] = List(new JarDependency(jarName))
 }

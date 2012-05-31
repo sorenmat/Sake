@@ -12,6 +12,7 @@ import org.apache.ivy.core.LogOptions
 import org.apache.ivy.util.MessageLogger
 import org.apache.ivy.util.DefaultMessageLogger
 import org.apache.ivy.util.Message
+import scala.collection.JavaConversions._
 
 /**
  * Resolves dependencies via ivy.
@@ -45,6 +46,7 @@ object IvyResolver {
     val resolveOptions = new ResolveOptions().setConfs(confs)
     resolveOptions.setOutputReport(false)
     resolveOptions.setLog(LogOptions.LOG_DOWNLOAD_ONLY)
+    //    resolveOptions.setTransitive(false)
     resolveOptions
   }
 
@@ -77,7 +79,6 @@ object IvyResolver {
         else
           None)
       val tmp = arts.flatMap(f => f)
-      println("----> " + tmp.mkString(", "))
       Some(tmp(0))
     } else
       None
@@ -86,17 +87,36 @@ object IvyResolver {
 
   def resolveIvyXML(file: String) = {
     try {
-    val ivyfile = new File(file)
-    //init resolve report
-    val report = getIvy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
+      val ivyfile = new File(file)
+      if (ivyfile.exists) {
 
-    //so you can get the jar library
-    val jarArtifactFile = report.getAllArtifactsReports().map(f => {
-      val moduleRevId = f.getArtifact().getModuleRevisionId()
-      new JarDependency(moduleRevId.getOrganisation(), moduleRevId.getName(), moduleRevId.getRevision())
-    })
-    jarArtifactFile
-      
+        //init resolve report
+        val report = getIvy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
+        if (report.hasError) {
+
+          val problems = report.getAllProblemMessages();
+          if (problems != null && !problems.isEmpty()) {
+            val errorMsgs = new StringBuffer();
+            for (problem <- problems) {
+              errorMsgs.append(problem);
+              errorMsgs.append("\n");
+            }
+            System.err.println("Errors encountered during dependency resolution for package :");
+            System.err.println(errorMsgs);
+          }
+        } else {
+          System.out.println("Dependencies in file " + file + " were successfully resolved");
+        }
+        //so you can get the jar library
+        val jarArtifactFile = report.getAllArtifactsReports().map(f => {
+          val moduleRevId = f.getArtifact().getModuleRevisionId()
+          new JarDependency(moduleRevId.getOrganisation(), moduleRevId.getName(), moduleRevId.getRevision())
+        })
+        jarArtifactFile
+      } else {
+        println("Unable to find ivy.xml")
+        Array[JarDependency]()
+      }
     } catch {
       case t: Throwable => throw new RuntimeException(t)
     }

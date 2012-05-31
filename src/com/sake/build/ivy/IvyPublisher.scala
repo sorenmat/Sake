@@ -42,6 +42,7 @@ object IvyPublisher {
   def publish(fromFile: File, org: String, name: String, revision: String, deps: List[JarDependency]) = {
     try {
       println("Using default cache dir located at " + getIvy.getSettings.getDefaultCache.getCanonicalPath)
+      println("Trying to publish "+org+" "+name)
       val cacheDir = getIvy.getSettings.getDefaultCache
       if (!new File(cacheDir, org + File.separator + name + File.separator + "jars").exists()) {
 
@@ -77,7 +78,7 @@ object IvyPublisher {
       </publications>
       {
         if (!deps.isEmpty) {
-          val xml = <dependencies> { deps.map(elm => <dependency org={ elm.organization } name={ elm.name } rev={ elm.revision } force="true"/>) } </dependencies>
+          val xml = <dependencies> { deps.map(elm => <dependency org={ elm.organization } name={ elm.name } rev={ elm.revision } force="true" transitive="false"/>) } </dependencies>
           xml
         } else
           NodeSeq.Empty
@@ -107,9 +108,9 @@ object IvyPublisher {
   }
 
   def main(args: Array[String]) {
-//    val deps = List(new JarDependency("commons-collections", "commons-collections", "3.1"))
-//    publish(new File(""), "com.schantz", "foundation", "1.0", deps)
-    val file = IvyResolver.resolve(new JarDependency("com.schantz", "foundation", "1.0"))
-    println(file.get.getCanonicalPath())
+    val deps = List(new JarDependency("commons-collections", "commons-collections", "3.1"))
+    publish(new File("/Users/soren/code/buildtest/FoundationBatch/target/jars/FoundationBatch.jar"), "com.schantz", "foundationbatch", "1.0", deps)
+//    val file = IvyResolver.resolve(new JarDependency("com.schantz", "foundation", "1.0"))
+//    println(file.get.getCanonicalPath())
   }
 }
