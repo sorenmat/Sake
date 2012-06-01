@@ -49,7 +49,7 @@ trait Web extends Build {
    * @return a list of tuples (fullPath to File, path inside war file)
    */
   def includedFiles(webDir: File) = {
-    val files = recursiveListFiles(webDir).map(f => (f.getAbsolutePath, f.getAbsolutePath.replace(webRoot, ""))).toList
+    val files = recursiveListFiles(webDir).map(f => (f.getCanonicalPath, f.getCanonicalPath.replace(webRoot, ""))).toList
     val jarFiles = classpath.map(jar => {
       val jarPath = jar.getJarFile.getAbsolutePath
       val zipPath = "WEB-INF/lib/"+jar.getJarFile.getName
