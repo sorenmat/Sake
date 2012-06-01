@@ -4,6 +4,7 @@ import tools.nsc.io.{Jar, ZipArchive}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import java.io.{IOException, FileOutputStream, FileInputStream, File}
 import com.sake.build.Build
+import org.specs2.files
 
 /**
  * Trait for adding support for building war files
@@ -33,7 +34,10 @@ trait Web extends Build {
     if (!webDir.exists())
       throw new RuntimeException("Unable to find webroot " + webRoot)
 
-    createWarFile("/tmp/test.zip", includedFiles(webDir))
+    // create the output directory
+    new File(warTargetDirectory).mkdirs
+    val output = warTargetDirectory+File.separator+warFileName
+    createWarFile(output, includedFiles(webDir))
   }
 
 
@@ -46,15 +50,19 @@ trait Web extends Build {
    */
   def includedFiles(webDir: File) = {
     val files = recursiveListFiles(webDir).map(f => (f.getAbsolutePath, f.getAbsolutePath.replace(webRoot, ""))).toList
-    val jarFiles = jarDependencies.map(jar => {
+    val jarFiles = classpath.map(jar => {
       val jarPath = jar.getJarFile.getAbsolutePath
       val zipPath = "WEB-INF/lib/"+jar.getJarFile.getName
       (jarPath, zipPath)
     })
     if(!new File(outputDirectory).exists())
       throw new RuntimeException("uable to find output directory "+outputDirectory)
-    val classFiles = recursiveListFiles(new File(outputDirectory)).map(f => (f.getAbsolutePath, f.getAbsolutePath.replace(outputDirectory, "WEB-INF/classes"))).toList
-    val newfiles = files ::: jarFiles ::: classFiles
+
+    val classFiles = recursiveListFiles(new File(classOutputDirectory)).map(f => {
+      (f.getAbsolutePath, f.getCanonicalPath.replace(new File(classOutputDirectory).getCanonicalPath, "WEB-INF/classes"))
+
+    }).toList
+    val newfiles = files ::: jarFiles.toList ::: classFiles
     println("Files: "+newfiles.mkString("\n\t"))
     newfiles
   }
@@ -78,7 +86,7 @@ trait Web extends Build {
         val in = new FileInputStream(fullPath)
 
         // Add ZIP entry to output stream.
-        println("Adding to zip "+zipPath)
+        //println("Adding to zip "+zipPath)
         out.putNextEntry(new ZipEntry(zipPath))
 
         Stream.continually(in.read(buf)).takeWhile(_ != -1).foreach(
