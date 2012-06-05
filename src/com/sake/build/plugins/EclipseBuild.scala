@@ -37,7 +37,7 @@ trait EclipseBuild extends Build {
       }
 
       new JarDependency(f)
-    }).toList ::: super.jarDependencies
+    }).toSet ++ super.jarDependencies
   }
 
   /*

@@ -17,7 +17,7 @@ val webBuild = new Build with Web  {
   def projectName = "War test build"
   def webRoot = "/Users/soren/workspaces/UnitLinked/Core/SchantzUserManagementWeb/war"
   override def outputDirectory = "/Users/soren/code/buildtest/Foundation/target/classes"
-  override def jarDependencies = List(new JarDependency("commons-lang", "commons-lang" , "2.6"))
+  override def jarDependencies = Set(new JarDependency("commons-lang", "commons-lang" , "2.6"))
 }
 
   webBuild.packageWar

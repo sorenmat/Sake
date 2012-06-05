@@ -7,5 +7,7 @@ class SakeBuild extends Build {
 //    println("Compiling Sake...")
 //  }
 
-  override def jarDependencies = List(new JarDependency("org.apache.ivy", "ivy", "2.2.0"))
+  override def jarDependencies = Set(new JarDependency("org.apache.ivy", "ivy", "2.2.0"),
+		  new JarDependency( "org.scala-lang" , "scala-library" , "2.10.0-M3"),
+		  new JarDependency("org.scala-lang" , "scala-compiler" , "2.10.0-M3"))
 }

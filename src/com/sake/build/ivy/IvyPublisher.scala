@@ -39,7 +39,7 @@ object IvyPublisher {
     resolveOptions
   }
 
-  def publish(fromFile: File, org: String, name: String, revision: String, deps: List[JarDependency]) = {
+  def publish(fromFile: File, org: String, name: String, revision: String, deps: Set[JarDependency]) = {
     try {
       println("Using default cache dir located at " + getIvy.getSettings.getDefaultCache.getCanonicalPath)
       println("Trying to publish "+org+" "+name)
@@ -62,13 +62,13 @@ object IvyPublisher {
     }
   }
 
-  def createIvyFile(file: File, org: String, module: String, rev: String, deps: List[JarDependency]) {
+  def createIvyFile(file: File, org: String, module: String, rev: String, deps: Set[JarDependency]) {
     val f = new RichFile(file)
     f.text = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + ivyPublishFile(org, module, rev, "release", "20121215185411", deps).toString()
 
   }
 
-  def ivyPublishFile(org: String, module: String, rev: String, status: String, pubDate: String, deps: List[JarDependency]) = {
+  def ivyPublishFile(org: String, module: String, rev: String, status: String, pubDate: String, deps: Set[JarDependency]) = {
     println("deps: " + deps.size)
     <ivy-module version="2.0" xmlns:m="http://ant.apache.org/ivy/maven">
       <info organisation={ org } module={ module } revision={ rev } status={ status } publication={ pubDate }>
@@ -108,7 +108,7 @@ object IvyPublisher {
   }
 
   def main(args: Array[String]) {
-    val deps = List(new JarDependency("commons-collections", "commons-collections", "3.1"))
+    val deps = Set(new JarDependency("commons-collections", "commons-collections", "3.1"))
     publish(new File("/Users/soren/code/buildtest/FoundationBatch/target/jars/FoundationBatch.jar"), "com.schantz", "foundationbatch", "1.0", deps)
 //    val file = IvyResolver.resolve(new JarDependency("com.schantz", "foundation", "1.0"))
 //    println(file.get.getCanonicalPath())

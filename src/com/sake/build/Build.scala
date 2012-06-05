@@ -1,37 +1,37 @@
 package com.sake.build
 
-import java.io.File
-import scala.tools.nsc.io.Path.string2path
-import scala.tools.nsc.io.Directory
-import scala.tools.nsc.io.Jar
+import log.Logger
 import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.Global
 import scala.tools.nsc.Settings
 import util.FileListing
 import com.sake.build.ivy.JarDependency
-import java.io.PrintWriter
-import java.io.StringWriter
 import com.sun.tools.javac._
-import com.sake.build.ivy.IvyResolver$
 import com.sake.build.ivy.IvyResolver
-import org.apache.ivy.ant.IvyPublish
 import com.sake.build.ivy.IvyPublisher
+import java.io._
+import java.util.zip.{ZipEntry, ZipOutputStream}
+import java.util.jar.{JarOutputStream, JarEntry}
 
 /**
  * @author soren
  *
  */
-trait Build {
+trait Build extends Logger {
 
-  lazy val tasks = List( 
-      ("compile", "compiles the main code"),
-      ("test", "running the test code")
-      )
-      
+  lazy val tasks = List(
+    ("compile", "compiles the main code"),
+    ("test", "running the test code")
+  )
+
   var rootPath = "."
   var internalClasspath = ""
+
   def sourceFolders: List[String] = List("src")
+
   def testFolders: List[String] = List("src_test")
+
+  def resourceFolders: List[String] = List("resources")
 
   def preCompile {}
 
@@ -40,15 +40,15 @@ trait Build {
   def javaOptions = List[String]()
 
   def classpath = {
-    IvyResolver.resolveIvyXML(ivyXML).toList ::: jarDependencies
+    IvyResolver.resolveIvyXML(ivyXML).toSet ++ jarDependencies
   }
 
-  def compile =  {
+  def compile = {
     compileFunction(sourceFolders, "classes")
   }
 
   def compileTest = {
-    compileFunction(testFolders, "testclasses", jarTestDependencies: _*)
+    compileFunction(testFolders, "testclasses", jarTestDependencies.toSeq: _*)
   }
 
   def compileFunction(folders: List[String], outputDir: String, jarDeps: JarDependency*) = {
@@ -65,13 +65,14 @@ trait Build {
       settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
       val projectclasspath = classpath.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator) + File.pathSeparator + jarDeps.map(f => f.getJarFile.getCanonicalPath()).mkString(File.pathSeparator)
       settings.classpath.value = projectclasspath
-      println("\n\n")
-      println("**********************************************************************************************************************")
-      println("* Compiling " + projectName + " in " + rootPath)
-      println("* Classpath " + settings.classpath.value)
-      println("* Compiling files in " + folders.mkString(","))
-      println("* Build root path = " + rootPath)
-      println("**********************************************************************************************************************")
+
+      info("\n\n")
+      info("**********************************************************************************************************************")
+      info("* Compiling " + projectName + " in " + rootPath)
+      info("* Classpath " + settings.classpath.value)
+      info("* Compiling files in " + folders.mkString(","))
+      info("* Build root path = " + rootPath)
+      info("**********************************************************************************************************************")
 
       val scalaFilesToCompile = folders.flatMap(folder => FileListing.getFileListing(new File(rootPath, folder), f => {
         f.getAbsoluteFile().toString().endsWith(".scala")
@@ -84,22 +85,22 @@ trait Build {
       if (!javaFilesToCompile.isEmpty) {
 
         // java compile
-        println("Compiling java")
+        info("Compiling java")
         val writer = new PrintWriter("/tmp/test.txt")
         val sourcePath = folders.map(sf => new File(rootPath, sf).getCanonicalPath()).mkString("" + File.pathSeparatorChar)
-        println("SourcePath: " + sourcePath)
-        val javaParameters = (javaOptions ::: List("-cp", settings.classpath.value, "-d", rootPath + File.separator + "target/"+outputDir, "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray
+        info("SourcePath: " + sourcePath)
+        val javaParameters = (javaOptions ::: List("-cp", settings.classpath.value, "-d", rootPath + File.separator + "target/" + outputDir, "-sourcepath", sourcePath) ::: javaFilesToCompile).toArray
         //        println("Java parameters: "+javaParameters.mkString(", "))
         val result = exec(javaParameters, writer)
         if (result != 0)
           throw new RuntimeException("Error compiling java code")
-        println("Done compiling java with result " + result)
+        info("Done compiling java with result " + result)
       }
 
       // scala compile
       if (!scalaFilesToCompile.isEmpty) {
-        println("Trying to compile the following files: " + scalaFilesToCompile.mkString("\n"))
-        println("Compiling scala")
+        info("Trying to compile the following files: " + scalaFilesToCompile.mkString("\n"))
+        info("Compiling scala")
         val reporter = new ConsoleReporter(settings)
         val compiler = new Global(settings, reporter)
         val runner = (new compiler.Run)
@@ -124,18 +125,32 @@ trait Build {
    * @return jarfile
    */
   def packageJar = {
-    println("Creating Jar '" + jarName + "' in directory " + jarOutputDirectory)
-    val jarFile = Jar.create(scala.tools.nsc.io.File(jarName), Directory(outputDirectory + File.separatorChar + "classes"), mainClass)
-    jarFile
+    info("Creating Jar '" + jarName + "' in directory " + new File(jarOutputDirectory).getCanonicalPath)
+    assembleJar(toInclude(classOutputDirectory), jarName)
+  }
+
+  /**
+   * Creates a jar file containg all the test classes
+   *
+   * @return jarfile
+   */
+  def packageTestJar = {
+    info("Creating Jar '" + jarName + "' in directory " + new File(jarOutputDirectory).getCanonicalPath)
+    assembleJar(toInclude(testClassOutputDirectory), testJarName)
   }
 
   def publish {
-    println("publish local..." + projectName)
-    println("Publish depenency " + classpath.map(f => f.toString()).mkString(", "))
+    info("publish local..." + projectName)
+    debug("Publish depenency " + classpath.map(f => f.toString()).mkString(", "))
     IvyPublisher.publish(new File(jarName), "com.schantz", projectName, "1.0", classpath)
   }
 
-  def jarName = { jarOutputDirectory + File.separatorChar + projectName + ".jar" }
+  def jarName = {
+    jarOutputDirectory + File.separatorChar + projectName + ".jar"
+  }
+  def testJarName = {
+    jarOutputDirectory + File.separatorChar + projectName + "Test.jar"
+  }
 
   def jarOutputDirectory = {
     val dir = rootPath + File.separatorChar + outputDirectory + File.separatorChar + "jars"
@@ -151,10 +166,13 @@ trait Build {
     //FIXME split up test and main
     val dir = rootPath + File.separatorChar + outputDirectory + File.separatorChar + "classes"
     new File(dir).mkdirs()
-    
+    dir
+  }
+
+  def testClassOutputDirectory = {
     val testdir = rootPath + File.separatorChar + outputDirectory + File.separatorChar + "testclasses"
     new File(testdir).mkdirs()
-    dir
+    testdir
   }
 
   def outputDirectory = "target"
@@ -164,6 +182,99 @@ trait Build {
    */
   def subProjects: List[SubProject] = Nil
 
-  def jarDependencies: List[JarDependency] = Nil
-  def jarTestDependencies: List[JarDependency] = List(new JarDependency(jarName))
+  def jarDependencies: Set[JarDependency] = Set()
+
+  def jarTestDependencies: Set[JarDependency] = Set(new JarDependency(jarName))
+
+
+  /**
+   * List of tuples to include in the jar file, this includes both class files and resources
+   *
+   * @param classDirectory
+   * @return
+   */
+  def toInclude(classDirectory: String) : List[(String, String)] = {
+    val resourceFiles = resourceFolders.flatMap(folderPath => recursiveListFiles(new File(folderPath)).map(f => (f.getCanonicalPath, f.getCanonicalPath.replace(new File(folderPath).getCanonicalPath+File.separator, ""))).toList)
+
+    val classFiles = recursiveListFiles(new File(classDirectory)).map(f => {
+      (f.getAbsolutePath, f.getCanonicalPath.replace(new File(classDirectory).getCanonicalPath+File.separator, ""))
+
+    }).toList
+    val newfiles = classFiles ::: resourceFiles
+    debug("Files: " + newfiles.mkString("\n\t"))
+    newfiles
+  }
+
+
+  /**
+   * Method to assemble the actual jar file
+   *
+   * @param fileNames
+   * @param outputFile
+   */
+  def assembleJar(fileNames: List[(String, String)], outputFile: String) {
+    val manifest = new java.util.jar.Manifest()
+    //manifest.getMainAttributes().put(java.util.jar.Attributes.Name.MANIFEST_VERSION, "1.0")
+    //manifest.getMainAttributes().put(java.util.jar.Attributes.Name.MAIN_CLASS, "TestClass")
+    val target = new JarOutputStream(new FileOutputStream(outputFile), manifest)
+    fileNames.foreach(entry => {
+      val (filePath, jarPath) = entry
+      add(new File(filePath), jarPath, target)
+    })
+    target.close()
+  }
+
+  def add(source: File, jarPath: String, target: JarOutputStream) {
+
+    try {
+      /*
+      if (source.isDirectory()) {
+        var name = source.getPath().replace("\\", "/");
+        if (!name.isEmpty()) {
+          if (!name.endsWith("/"))
+            name = name + "/";
+          val entry = new JarEntry(name);
+          entry.setTime(source.lastModified());
+          target.putNextEntry(entry);
+          target.closeEntry();
+        }
+        for (nestedFile <- source.listFiles())
+          add(nestedFile, target);
+      } */
+      val entry = new JarEntry(jarPath);
+      entry.setTime(source.lastModified());
+      target.putNextEntry(entry);
+      val in = new BufferedInputStream(new FileInputStream(source));
+
+      val buffer = new Array[Byte](1024)
+      var count = 0
+      while (count != -1) {
+        count = in.read(buffer);
+        if (count != -1)
+          target.write(buffer, 0, count);
+      }
+      target.closeEntry();
+      in.close();
+    }
+  }
+
+
+  /**
+   *  Filter used in finding files to include in the jar file. One could override this method in order to exclude files in the jar.
+   *  This is called both from packageJar and packageTestJar
+   * @param file
+   * @return
+   */
+  def defaultFilter(file: File): Boolean = {
+    if (file.getName.startsWith("."))
+      false
+    else
+      true
+  }
+
+  def recursiveListFiles(f: File): Array[File] = {
+    val these = f.listFiles.filter(file => !file.isDirectory && defaultFilter(file))
+    these ++ f.listFiles.filter(file => file.isDirectory && defaultFilter(file)).flatMap(recursiveListFiles)
+  }
+
 }

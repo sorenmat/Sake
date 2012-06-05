@@ -43,13 +43,13 @@ trait Web extends Build {
 
   /**
    * Method to find the files to be included in the war package.
-   * This should be overridden if there are changes to what should be included in the war
+   * This should be overridden if there are changes too what should be included in the war
    *
    * @param webDir The web root source directory to include files from
    * @return a list of tuples (fullPath to File, path inside war file)
    */
   def includedFiles(webDir: File) = {
-    val files = recursiveListFiles(webDir).map(f => (f.getCanonicalPath, f.getCanonicalPath.replace(webRoot, ""))).toList
+    val files = recursiveListFiles(webDir).map(f => (f.getCanonicalPath, f.getCanonicalPath.replace(new File(webRoot).getCanonicalPath, ""))).toList
     val jarFiles = classpath.map(jar => {
       val jarPath = jar.getJarFile.getAbsolutePath
       val zipPath = "WEB-INF/lib/"+jar.getJarFile.getName
@@ -62,7 +62,12 @@ trait Web extends Build {
       (f.getAbsolutePath, f.getCanonicalPath.replace(new File(classOutputDirectory).getCanonicalPath, "WEB-INF/classes"))
 
     }).toList
-    val newfiles = files ::: jarFiles.toList ::: classFiles
+
+
+    // schantz hack
+    val resourceFiles = recursiveListFiles(new File("resources")).map(f => (f.getCanonicalPath, f.getCanonicalPath.replace(new File("resources").getCanonicalPath, "WEB-INF/classes"))).toList
+
+    val newfiles = files ::: jarFiles.toList ::: classFiles  ::: resourceFiles
     println("Files: "+newfiles.mkString("\n\t"))
     newfiles
   }
@@ -103,11 +108,6 @@ trait Web extends Build {
     } catch {
       case e: IOException => e.printStackTrace()
     }
-  }
-
-  def recursiveListFiles(f: File): Array[File] = {
-    val these = f.listFiles.filter(!_.isDirectory)
-    these ++ f.listFiles.filter(_.isDirectory).flatMap(recursiveListFiles)
   }
 }
 

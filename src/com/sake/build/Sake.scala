@@ -23,6 +23,7 @@ object Sake extends App {
   var taskCache: List[(Project, Task)] = Nil
 
   override def main(args: Array[String]) {
+    println(header)
     if (args.size == 0) {
       println("Sake")
       println("You need to specify atleast one of the following parameters")
@@ -32,8 +33,7 @@ object Sake extends App {
     } else {
       areWeInProjectRoot
       super.main(args)
-      val path = if (args.size > 1) args(1) else "."
-      Sake.runTargetOnBuild(args(0), path)
+      Sake.runTargetOnBuild(args.toList, ".")
     }
   }
 
@@ -41,21 +41,26 @@ object Sake extends App {
    *
    * @return Projetname, List of exported jar dependencies.
    */
-  def runTargetOnBuild(target: String, rootPath: String) {
+  def runTargetOnBuild(targets: List[String], rootPath: String) {
+
     try {
-      val targetKey = (Project(rootPath), Task(target))
-      if (taskCache != null && !taskCache.contains(targetKey)) {
+      //val targetKey = (Project(rootPath), Task(target))
+      //if (taskCache != null && !taskCache.contains(targetKey)) {
           val settings = new Settings
           settings.deprecation.value = true // enable detailed deprecation warnings
           settings.unchecked.value = true // enable detailed unchecked warnings
-          settings.embeddedDefaults(this.getClass.getClassLoader)
+          //settings.embeddedDefaults(this.getClass.getClassLoader)
           new File(rootPath, "target").mkdirs() // ensure that target directory exists
           settings.outputDirs.setSingleOutput("target")
 
           // bin is a eclipse hack
-          val pathList = List("bin", IvyResolver.resolve(new JarDependency("org.apache.ivy", "ivy", "2.2.0")).get.getAbsolutePath()) ::: CompileHelper.sakePath ::: CompileHelper.compilerPath ::: CompileHelper.javaCompilerPath ::: CompileHelper.libPath
+
+
+          //TODO scan some plugin directory for plugin dependencies
+          val pathList = List("bin", IvyResolver.resolve(new JarDependency("com.beust", "jcommander", "1.26")).get.getAbsolutePath(), IvyResolver.resolve(new JarDependency("org.testng", "testng", "6.5.2")).get.getAbsolutePath(), IvyResolver.resolve(new JarDependency("org.apache.ivy", "ivy", "2.2.0")).get.getAbsolutePath()) ::: CompileHelper.sakePath ::: CompileHelper.compilerPath ::: CompileHelper.javaCompilerPath ::: CompileHelper.libPath
           settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
           settings.classpath.value = pathList.mkString(File.pathSeparator)
+          debug("Sake classpath "+settings.classpath.value)
 
           val buildFile = findBuildFile(rootPath + File.separatorChar + "project").get
           println("Found build file '" + buildFile + "'")
@@ -75,13 +80,13 @@ object Sake extends App {
               val className = output.substring(output.indexOf("defined class") + ("defined class").size, output.length()).trim()
               bout.reset()
               println("New instance of build")
-              executeLine(interp, "val " + className.toLowerCase() + " = new " + className + "()")
+              executeLine(interp, "val " + className.toLowerCase() + " = new " + className + "()", bout)
               println("New instance of build - done")
               val tasks = getTasks(bout, interp, className)
               println("Please run one of the following tasks: ")
               tasks.foreach(task => println(task._1))
                
-              executeLine(interp, "" + className.toLowerCase() + ".rootPath = \"" + rootPath.trim() + "\"")
+              executeLine(interp, "" + className.toLowerCase() + ".rootPath = \"" + rootPath.trim() + "\"", bout)
               bout.reset()
               val subProjectResult = interp.interpret(className.toLowerCase() + ".subProjects.map(sp => sp.path).mkString(\",\")")
               val subProjects = String.valueOf(bout)
@@ -97,7 +102,8 @@ object Sake extends App {
                   projectsPaths.foreach(projectPath => {
 
                     println("Settings projectPath in runTargetOnBuild to " + new File(projectPath).getCanonicalPath())
-                    runTargetOnBuild(target, new File(projectPath).getCanonicalPath())
+
+                    runTargetOnBuild(targets, new File(projectPath).getCanonicalPath())
                     settings.classpath.value = settings.classpath.value + File.pathSeparator + projectsCompiledClasses(projectPath)
                     debug("Returned ClassPath: " + settings.classpath.value)
                     println("\n**\n**\n" + className + "->" + new File(projectPath).getCanonicalPath() + "/target/classes" + "\n")
@@ -106,17 +112,26 @@ object Sake extends App {
                   })
                 }
               }
-              executeBuild(interp, bout, className, rootPath, settings.classpath.value, target)
-              taskCache = targetKey :: taskCache // add target to taskCache
+              targets.foreach(currenttarget => {
+                try {
+                executeBuild(interp, bout, className, rootPath, settings.classpath.value, currenttarget)
 
+                } catch {
+                  case e: RuntimeException => println("Execution of target "+currenttarget+" went wrong"); e.printStackTrace()
+                }
+              })
+              //executeBuild(interp, bout, className, rootPath, settings.classpath.value, target)
+              //taskCache = targetKey :: taskCache // add target to taskCache
+              color("green")
               println("Result: " + result.toString())
               println("\nCompile done.")
+              color("")
             }
             case Results.Incomplete =>
           }
-        } else {
-        println("Task '" + targetKey + "'already executed")
-      }
+        //} else {
+        //println("Task '" + targetKey + "'already executed")
+      //}
 
     } catch {
       case e: Throwable => e.printStackTrace()
@@ -128,21 +143,31 @@ object Sake extends App {
    * Execute the build file. The interp assumes the build file as been loaded
    */
   def executeBuild(interp: IMain, bout: ByteArrayOutputStream, className: String, rootPath: String, classpath: String, target: String) = {
+      val varName = className.toLowerCase()
+      /*val build = interp.valueOfTerm(varName)
+      build match {
+        case Some(x) => {
+          val b = x.asInstanceOf[Build]
+          println("\n\n\n\n\n"+b.projectName+"\n\n\n\n\n")
+        }
+        case None =>
+      }
+      */
     interp.reporter.withoutTruncating {
       bout.reset()
-      val varName = className.toLowerCase()
       debug("executeBuild classpath: " + trim(classpath))
 //      executeLine(interp, "" + varName + ".classpath = \"" + trim(classpath) + "\"")
-      executeLine(interp, "" + varName + "." + target)
+      executeLine(interp, "" + varName + "." + target, bout)
       bout.reset()
+
     }
   }
 
-  def executeLine(interp: IMain, line: String) {
+  def executeLine(interp: IMain, line: String,bout: ByteArrayOutputStream) {
     interp.interpret(line) match {
       case Success =>
       case Incomplete => throw new RuntimeException("Incomplete")
-      case Error => throw new RuntimeException("Error in line: " + line)
+      case Error => throw new RuntimeException("Error in line: " + line+"\n\n"+String.valueOf(bout))
     }
   }
 
@@ -177,7 +202,7 @@ object Sake extends App {
   
   private def getTasks(bout: java.io.ByteArrayOutputStream, interp: scala.tools.nsc.interpreter.IMain, className: java.lang.String) = {
     // list all tasks
-    executeLine(interp, "val myTask = " + className.toLowerCase() + ".tasks")
+    executeLine(interp, "val myTask = " + className.toLowerCase() + ".tasks", bout)
     val mytask = interp.valueOfTerm("myTask")
     mytask match {
       case Some(x) => x.asInstanceOf[List[(String, String)]]
@@ -185,5 +210,56 @@ object Sake extends App {
     }
   }
 
+  def color (name: String) {
+    if (name.equals("red")) {
+
+      System.out.print (Char.box(27) + "[311m")
+    }
+    else if (name.equals("lime")) {
+      System.out.print (Char.box(27) + "[321m")
+    }
+    else if (name.equals("yellow")) {
+      System.out.print (Char.box(27) + "[331m")
+    }
+    else if (name.equals("blue")) {
+      System.out.print (Char.box(27) + "[341m")
+    }
+    else if (name.equals("magenta")) {
+      System.out.print (Char.box(27) + "[351m")
+    }
+    else if (name.equals("cyan")) {
+      System.out.print (Char.box(27) + "[361m")
+    }
+    else if (name.equals("white")) {
+      System.out.print (Char.box(27) + "[371m")
+    }
+    else {
+      System.out.print (Char.box(27) + "[0m")
+    }
+  }
+
+    /*
+  def header = {
+    """
+      | ::::::::      :::     :::    ::: ::::::::::
+      |:+:    :+:   :+: :+:   :+:   :+:  :+:
+      |+:+         +:+   +:+  +:+  +:+   +:+
+      |+#++:++#++ +#++:++#++: +#++:++    +#++:++#
+      |       +#+ +#+     +#+ +#+  +#+   +#+
+      |#+#    #+# #+#     #+# #+#   #+#  #+#
+      | ########  ###     ### ###    ### ##########
+    """.stripMargin
+  }
+      */
+  def header = {
+    """
+      |   _____       _
+      |  / ____|     | |
+      | | (___   __ _| | _____
+      |  \___ \ / _` | |/ / _ \
+      |  ____) | (_| |   <  __/
+      | |_____/ \__,_|_|\_\___|
+    """.stripMargin
+  }
 }
 

@@ -13,31 +13,26 @@ import org.apache.ivy.util.MessageLogger
 import org.apache.ivy.util.DefaultMessageLogger
 import org.apache.ivy.util.Message
 import scala.collection.JavaConversions._
+import com.sake.build.log.Logger
 
 /**
  * Resolves dependencies via ivy.
  * @author soren
  *
  */
-object IvyResolver {
+object IvyResolver extends Logger {
 
   lazy val getIvy = {
-    //    val ivySettings = new IvySettings()
-    //    //url resolver for configuration of maven repo
-    //    val resolver = new URLResolver()
-    //    resolver.setM2compatible(true)
-    //    resolver.setName("central")
-    //    //you can specify the url resolution pattern strategy
-    //    resolver.addArtifactPattern("http://repo1.maven.org/maven2/" + "[organisation]/[module]/[revision]/[artifact](-[revision]).[ext]")
-    //    //adding maven repo resolver
-    //    ivySettings.addResolver(resolver)
-    //    //set to the default resolver
-    //    ivySettings.setDefaultResolver(resolver.getName())
     val ivyFile = new IvySettings()
-    ivyFile.load(new java.io.File("/Users/soren/code/buildtest/Foundation/ivysettings.xml"))
+    val settingsFile = new java.io.File("ivysettings.xml")
+    if (settingsFile.exists())
+      ivyFile.load(settingsFile)
+    else
+      debug("Unable to find ivysettings.xml")
+
     //    creates an Ivy instance with settings
     val ivy = Ivy.newInstance(ivyFile)
-    ivy.getLoggerEngine.setDefaultLogger(new DefaultMessageLogger(Message.MSG_INFO))
+    ivy.getLoggerEngine.setDefaultLogger(new DefaultMessageLogger(Message.MSG_ERR))
     ivy
   }
 
@@ -46,7 +41,6 @@ object IvyResolver {
     val resolveOptions = new ResolveOptions().setConfs(confs)
     resolveOptions.setOutputReport(false)
     resolveOptions.setLog(LogOptions.LOG_DOWNLOAD_ONLY)
-    //    resolveOptions.setTransitive(false)
     resolveOptions
   }
 
@@ -72,7 +66,6 @@ object IvyResolver {
     //so you can get the jar library
     val artifacts = report.getAllArtifactsReports()
     val result = if (artifacts.size > 0) {
-      println(artifacts(0).getArtifact.getConfigurations.mkString(", "));
       val arts = artifacts.map(f =>
         if (f.getArtifact.getConfigurations.contains("master") || f.getArtifact.getConfigurations.contains("default"))
           Some(f.getLocalFile)
@@ -94,18 +87,20 @@ object IvyResolver {
         val report = getIvy.resolve(ivyfile.toURI().toURL(), defaultresolveOptions)
         if (report.hasError) {
 
-          val problems = report.getAllProblemMessages();
+          val problems = report.getAllProblemMessages()
           if (problems != null && !problems.isEmpty()) {
-            val errorMsgs = new StringBuffer();
+            val errorMsgs = new StringBuffer()
             for (problem <- problems) {
-              errorMsgs.append(problem);
-              errorMsgs.append("\n");
+              errorMsgs.append(problem)
+              errorMsgs.append("\n")
             }
-            System.err.println("Errors encountered during dependency resolution for package :");
-            System.err.println(errorMsgs);
+            error("Errors encountered during dependency resolution for package :")
+            error(errorMsgs.toString)
+            throw new RuntimeException("unable to resolve dependcies.")
+
           }
         } else {
-          System.out.println("Dependencies in file " + file + " were successfully resolved");
+          info("Dependencies in file " + file + " were successfully resolved")
         }
         //so you can get the jar library
         val jarArtifactFile = report.getAllArtifactsReports().map(f => {
@@ -114,12 +109,16 @@ object IvyResolver {
         })
         jarArtifactFile
       } else {
-        println("Unable to find ivy.xml")
+        debug("Unable to find ivy.xml")
         Array[JarDependency]()
       }
     } catch {
       case t: Throwable => throw new RuntimeException(t)
     }
+  }
+
+  def main(args: Array[String]) {
+    resolve(new JarDependency("commons-lang", "commons-lang" ,"1.0"))
   }
 
 }
