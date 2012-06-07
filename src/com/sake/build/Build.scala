@@ -24,6 +24,8 @@ trait Build extends Logger {
     ("test", "running the test code")
   )
 
+  val resolver = new IvyResolver()
+
   var rootPath = "."
   var internalClasspath = ""
 
@@ -40,7 +42,10 @@ trait Build extends Logger {
   def javaOptions = List[String]()
 
   def classpath = {
-    IvyResolver.resolveIvyXML(ivyXML).toSet ++ jarDependencies
+    if (new File(ivyXML).exists())
+      resolver.resolveIvyXML(ivyXML).toSet ++ jarDependencies
+    else
+      jarDependencies
   }
 
   def compile = {

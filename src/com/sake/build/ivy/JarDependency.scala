@@ -12,13 +12,14 @@ class JarDependency(val organization: String, val name: String, val revision: St
     this.jarFile = jarFile
   }
 
+
   def getJarFile = {
     if (resolve)
-      IvyResolver.resolve(this).get
+      new IvyResolver().resolve(this).get
     else
       new File(jarFile)
   }
-  
+
   override def toString = organization+":"+name+":"+revision
 }
 object testing {

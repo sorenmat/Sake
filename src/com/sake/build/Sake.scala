@@ -9,10 +9,12 @@ import scala.tools.nsc.interpreter.Results
 import scala.tools.nsc.interpreter.Results._
 import scala.tools.nsc.Settings
 import com.sake.build.ivy.IvyResolver
+import com.sake.build.log._
 import com.sake.build.ivy.JarDependency
 import com.sake.build.util.StringUtils._
 
-object Sake extends App {
+
+object Sake extends App with Logger {
 
   case class Task(name: String)
   case class Project(path: String)
@@ -25,10 +27,10 @@ object Sake extends App {
   override def main(args: Array[String]) {
     println(header)
     if (args.size == 0) {
-      println("Sake")
-      println("You need to specify atleast one of the following parameters")
-      println("* compile - Compiles the source files.")
-      println("* packageJar - Creates a jar file from the compiled classes.")
+      info("Sake")
+      info("You need to specify atleast one of the following parameters")
+      info("* compile - Compiles the source files.")
+      info("* packageJar - Creates a jar file from the compiled classes.")
 
     } else {
       areWeInProjectRoot
@@ -56,14 +58,16 @@ object Sake extends App {
           // bin is a eclipse hack
 
 
+          val resolver = new IvyResolver()
           //TODO scan some plugin directory for plugin dependencies
-          val pathList = List("bin", IvyResolver.resolve(new JarDependency("com.beust", "jcommander", "1.26")).get.getAbsolutePath(), IvyResolver.resolve(new JarDependency("org.testng", "testng", "6.5.2")).get.getAbsolutePath(), IvyResolver.resolve(new JarDependency("org.apache.ivy", "ivy", "2.2.0")).get.getAbsolutePath()) ::: CompileHelper.sakePath ::: CompileHelper.compilerPath ::: CompileHelper.javaCompilerPath ::: CompileHelper.libPath
+          val pathList = List("bin", resolver.resolve(new JarDependency("com.beust", "jcommander", "1.26")).get.getAbsolutePath(), resolver.resolve(new JarDependency("org.testng", "testng", "6.5.2")).get.getAbsolutePath(), resolver.resolve(new JarDependency("org.apache.ivy", "ivy", "2.2.0")).get.getAbsolutePath()) ::: CompileHelper.sakePath ::: CompileHelper.compilerPath ::: CompileHelper.javaCompilerPath ::: CompileHelper.libPath
+
           settings.bootclasspath.value = pathList.mkString(File.pathSeparator)
           settings.classpath.value = pathList.mkString(File.pathSeparator)
           debug("Sake classpath "+settings.classpath.value)
 
-          val buildFile = findBuildFile(rootPath + File.separatorChar + "project").get
-          println("Found build file '" + buildFile + "'")
+          val buildFile = findBuildFile(rootPath + File.separatorChar + "sake").get
+          info("Found build file '" + buildFile + "'")
           val projectFile = Source.fromFile(buildFile).mkString
 
           val bout = new ByteArrayOutputStream()
@@ -79,9 +83,10 @@ object Sake extends App {
               val output = String.valueOf(bout)
               val className = output.substring(output.indexOf("defined class") + ("defined class").size, output.length()).trim()
               bout.reset()
-              println("New instance of build")
+
+              // create a new instance of the build in the interpreter
               executeLine(interp, "val " + className.toLowerCase() + " = new " + className + "()", bout)
-              println("New instance of build - done")
+
               val tasks = getTasks(bout, interp, className)
               println("Please run one of the following tasks: ")
               tasks.foreach(task => println(task._1))
@@ -101,13 +106,13 @@ object Sake extends App {
                   val projectsPaths = projects.split(",")
                   projectsPaths.foreach(projectPath => {
 
-                    println("Settings projectPath in runTargetOnBuild to " + new File(projectPath).getCanonicalPath())
+                    info("Settings projectPath in runTargetOnBuild to " + new File(projectPath).getCanonicalPath())
 
                     runTargetOnBuild(targets, new File(projectPath).getCanonicalPath())
                     settings.classpath.value = settings.classpath.value + File.pathSeparator + projectsCompiledClasses(projectPath)
                     debug("Returned ClassPath: " + settings.classpath.value)
-                    println("\n**\n**\n" + className + "->" + new File(projectPath).getCanonicalPath() + "/target/classes" + "\n")
-                    println(settings.classpath.value + "\n\n\n\n\n")
+                    info("\n**\n**\n" + className + "->" + new File(projectPath).getCanonicalPath() + "/target/classes" + "\n")
+                    info(settings.classpath.value + "\n\n\n\n\n")
                     buildedSubProjects = className :: buildedSubProjects
                   })
                 }
@@ -117,15 +122,13 @@ object Sake extends App {
                 executeBuild(interp, bout, className, rootPath, settings.classpath.value, currenttarget)
 
                 } catch {
-                  case e: RuntimeException => println("Execution of target "+currenttarget+" went wrong"); e.printStackTrace()
+                  case e: RuntimeException => info("Execution of target "+currenttarget+" went wrong"); e.printStackTrace()
                 }
               })
               //executeBuild(interp, bout, className, rootPath, settings.classpath.value, target)
               //taskCache = targetKey :: taskCache // add target to taskCache
-              color("green")
-              println("Result: " + result.toString())
-              println("\nCompile done.")
-              color("")
+              //println("Result: " + result.toString())
+              //println("\nCompile done.")
             }
             case Results.Incomplete =>
           }
@@ -177,7 +180,9 @@ object Sake extends App {
   }
 
   def findBuildFile(projectPath: String) = {
-    val files = new File(projectPath).listFiles()
+    val path = new File(projectPath)
+    debug(path.getCanonicalPath)
+    val files = path.listFiles()
     if (files == null) {
       throw new RuntimeException("Unable to find project files in " + projectPath + " relative to " + new File(".").getAbsolutePath())
 
@@ -186,12 +191,8 @@ object Sake extends App {
   }
 
   def areWeInProjectRoot {
-    if (!new File(".", "project").exists())
+    if (!new File(".", "sake").exists())
       throw new RuntimeException("You need to be in a project root when executing sake")
-  }
-
-  def debug(msg: String) {
-    println("[DEBUG] - " + msg)
   }
 
   def addToMap(map: Map[String, String], key: String, newData: String) = {
@@ -210,47 +211,6 @@ object Sake extends App {
     }
   }
 
-  def color (name: String) {
-    if (name.equals("red")) {
-
-      System.out.print (Char.box(27) + "[311m")
-    }
-    else if (name.equals("lime")) {
-      System.out.print (Char.box(27) + "[321m")
-    }
-    else if (name.equals("yellow")) {
-      System.out.print (Char.box(27) + "[331m")
-    }
-    else if (name.equals("blue")) {
-      System.out.print (Char.box(27) + "[341m")
-    }
-    else if (name.equals("magenta")) {
-      System.out.print (Char.box(27) + "[351m")
-    }
-    else if (name.equals("cyan")) {
-      System.out.print (Char.box(27) + "[361m")
-    }
-    else if (name.equals("white")) {
-      System.out.print (Char.box(27) + "[371m")
-    }
-    else {
-      System.out.print (Char.box(27) + "[0m")
-    }
-  }
-
-    /*
-  def header = {
-    """
-      | ::::::::      :::     :::    ::: ::::::::::
-      |:+:    :+:   :+: :+:   :+:   :+:  :+:
-      |+:+         +:+   +:+  +:+  +:+   +:+
-      |+#++:++#++ +#++:++#++: +#++:++    +#++:++#
-      |       +#+ +#+     +#+ +#+  +#+   +#+
-      |#+#    #+# #+#     #+# #+#   #+#  #+#
-      | ########  ###     ### ###    ### ##########
-    """.stripMargin
-  }
-      */
   def header = {
     """
       |   _____       _

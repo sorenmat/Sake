@@ -8,6 +8,10 @@ trait Logger {
     println("[INFO] "+new Date()+" - "+msg)
   }
 
+  def info_nolinebreak(msg: String) {
+    print("[INFO] "+new Date()+" - "+msg)
+  }
+
   def debug(msg: String) {
     println("[DEBUG] "+new Date()+" - "+msg)
   }

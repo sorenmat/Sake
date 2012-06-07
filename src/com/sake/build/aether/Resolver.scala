@@ -9,10 +9,15 @@ import java.nio.channels.FileChannel.MapMode
 import java.nio.channels.FileChannel
 import com.sake.build.log.Logger
 import xml.XML
+import com.sake.build.ivy.JarDependency
 
 
-object Resolver extends Logger {
+class Resolver(offline: Boolean = false) extends Logger {
   val home = System.getProperty("user.home")
+
+  def resolver(dep: JarDependency) : File = {
+    resolver(dep.organization, dep.name, dep.revision, dep.name, transitive = false)
+  }
 
   def resolver(org: String, module: String, revision: String, artifact: String, transitive: Boolean): File = {
     val baseURL = "http://repo1.maven.org/maven2/" + "[organisation]/[module]/[revision]/[artifact]-[revision].[ext]"
@@ -35,8 +40,6 @@ object Resolver extends Logger {
 
     }
 
-    info("Resolved URL " + resolvedURL)
-    val reader = new URL(resolvedURL).openConnection().getInputStream
 
     val buffer = new Array[Byte](2048)
 
@@ -50,6 +53,9 @@ object Resolver extends Logger {
 
     }
     if (fetchFile) {
+      info("Resolved URL " + resolvedURL)
+      val reader = new URL(resolvedURL).openConnection().getInputStream
+
       info("Artifact not found in local cache, downloading it")
       try {
         val created = new File(localPath(org, module, revision)).mkdirs()
@@ -58,7 +64,7 @@ object Resolver extends Logger {
       }
       val out = new BufferedOutputStream(new FileOutputStream(localFile))
 
-      info_nolinebreak("Downloading "+org+":"+module+":"+artifact+" -> ")
+      info_nolinebreak("Downloading "+org+":"+module+":"+revision+" -> ")
       Iterator.continually(reader.read(buffer)).takeWhile(b => {
         print("#")
         b != -1
