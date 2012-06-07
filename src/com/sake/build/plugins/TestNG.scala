@@ -1,24 +1,26 @@
 package com.sake.build.plugins
 
-import org.testng.xml.XmlSuite
 import scala.collection.JavaConversions._
 import java.io.File
-import java.net.{URL, URLClassLoader}
+import java.net.URLClassLoader
 import com.sake.build.ivy.JarDependency
 import org.testng._
 
 trait TestNG {
 
   def testJarName: String
+
   def jarName: String
+
   def classpath: Set[JarDependency]
 
-  def test = {
+  def test {
+      test("test_resources/generaladvlife-db-test.xml")
+  }
+
+  def test(suiteFile: String) = {
     try {
-
-
       val urls = classpath.map(file => file.getJarFile.toURI.toURL)
-      val suiteFile = "test_resources/generaladvlife-db-test.xml"
       val testng = new org.testng.TestNG();
       testng.setVerbose(1)
       // ClassLoader.getSystemClassLoader()
@@ -54,8 +56,8 @@ trait TestNG {
       val method = classOf[URLClassLoader].getDeclaredMethods.filter(f => f.getName == "addURL").head
       //val method = classOf[URLClassLoader].getDeclaredMethod("addURL", classOf[URL])
       method.setAccessible(true);
-      println(file.toURI().toURL()+ " was added to system classloader")
-      method.invoke(classLoader, file.toURI().toURL() )
+      println(file.toURI().toURL() + " was added to system classloader")
+      method.invoke(classLoader, file.toURI().toURL())
 
     } catch {
       case e: Throwable => e.printStackTrace()
